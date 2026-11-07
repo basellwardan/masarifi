@@ -1,0 +1,55 @@
+/* Colours, glass and spacing taken from the reference screens. */
+:root {
+  --navy-900: #050f33;
+  --navy-800: #071a4a;
+  --navy-700: #0d2e7a;
+  --blue-600: #1d56b0;
+  --blue-400: #4f86d6;
+  --sky-300: #6fa3e3;
+  --teal-400: #3cc6d4;
+
+  --hero-gradient: linear-gradient(180deg, #061541 0%, #0a2463 28%, #12408f 58%, #2b69bf 82%, #5d95dc 100%);
+  --screen-gradient: linear-gradient(180deg, #061541 0%, #0a2463 38%, #12408f 70%, #2763b9 100%);
+
+  --glass-fill: rgba(255, 255, 255, 0.14);
+  --glass-fill-strong: rgba(255, 255, 255, 0.22);
+  --glass-border: rgba(255, 255, 255, 0.26);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+  --glass-blur: blur(22px) saturate(160%);
+
+  --page: #f4f5f7;
+  --sheet: #ffffff;
+  --pill: #ebecee;
+  --tile: #f4f4f6;
+  --icon-bg: #eeeff1;
+  --ink: #0b0b0c;
+  --ink-2: #2a2b2e;
+  --muted: #9b9ca1;
+  --muted-2: #b9babe;
+  --black: #000000;
+  --danger: #d63c3c;
+  --positive: #16a36b;
+
+  --r-screen: 40px;
+  --r-sheet: 32px;
+  --r-card: 24px;
+  --r-tile: 18px;
+  --r-pill: 999px;
+
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+
+  --safe-top: max(env(safe-area-inset-top, 0px), 28px);
+  --safe-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
+
+  --font-en: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-ar: 'IBM Plex Sans Arabic', 'Inter', system-ui, sans-serif;
+  --font-num: 'Inter', system-ui, sans-serif;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}

@@ -1,0 +1,58 @@
+# Builds an unsigned masarifi.ipa on a free GitHub macOS machine.
+# Install it on an iPhone with Sideloadly (it signs the app with your Apple ID).
+# Run it from the Actions tab ("Run workflow") or by pushing to main.
+name: iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Build the web app
+        run: npm run build
+
+      - name: Sync into the iOS project (runs pod install)
+        run: npx cap sync ios
+
+      - name: Archive (unsigned)
+        run: |
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            | xcpretty || exit ${PIPESTATUS[0]}
+
+      - name: Package masarifi.ipa
+        run: |
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" "$RUNNER_TEMP/ipa/Payload/"
+          cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/masarifi.ipa" Payload
+          ls -la "$GITHUB_WORKSPACE/masarifi.ipa"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: masarifi-ipa
+          path: masarifi.ipa
+          retention-days: 30
