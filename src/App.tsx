@@ -5,6 +5,7 @@ import { AddSheet } from './components/AddSheet';
 import { MonthSheet, NotificationsSheet } from './components/Sheets';
 import { TabBar } from './components/TabBar';
 import { Toast } from './components/Toast';
+import { useIOSAccessibility } from './lib/glassTabBar';
 import { isNative, setupStatusBar } from './lib/native';
 import { useStore } from './lib/store';
 import { useUi, type Tab } from './lib/ui';
@@ -32,6 +33,7 @@ export default function App() {
   const lang = useStore((s) => s.settings.lang);
   const { tab, direction, sheet } = useUi();
   const [minDone, setMinDone] = useState(false);
+  useIOSAccessibility();
 
   useEffect(() => {
     setupStatusBar();

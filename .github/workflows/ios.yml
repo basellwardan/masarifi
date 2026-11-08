@@ -15,6 +15,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Liquid Glass needs the iOS 26 SDK (Xcode 26): the native glass tab bar
+      # and the system's share sheet, alerts and keyboard all depend on it.
+      - name: Use Xcode 26
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -1)
+          if [ -z "$XC" ]; then
+            echo "::error::No Xcode 26 on this runner"; ls /Applications | grep -i xcode; exit 1
+          fi
+          sudo xcode-select -s "$XC/Contents/Developer"
+          xcodebuild -version
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22

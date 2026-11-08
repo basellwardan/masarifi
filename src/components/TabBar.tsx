@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { ArrowDownUp, ChartPie, CreditCard, LayoutGrid, Mic } from 'lucide-react';
 import { tap } from '../lib/native';
+import { useNativeTabBar } from '../lib/glassTabBar';
 import { useUi, type Tab } from '../lib/ui';
 
 const ITEMS: { id: Tab; Icon: typeof CreditCard }[] = [
@@ -14,6 +15,9 @@ const ITEMS: { id: Tab; Icon: typeof CreditCard }[] = [
 export function TabBar() {
   const tab = useUi((s) => s.tab);
   const setTab = useUi((s) => s.setTab);
+  const nativeTabBar = useUi((s) => s.nativeTabBar);
+  useNativeTabBar();
+  if (nativeTabBar) return null; // iPhone iOS 26+: native Liquid Glass bar instead
   return (
     <motion.nav
       className="tabbar"

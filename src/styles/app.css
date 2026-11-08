@@ -992,3 +992,123 @@ html.lite .tabbar {
   backface-visibility: hidden;
   contain: layout paint;
 }
+
+/* =====================================================================
+   iPhone: Liquid Glass (html.ios)
+   Follows Apple's "Adopting Liquid Glass": glass only on the navigation and
+   control layer (buttons, chips, tab bar, sheets), never on content; no glass
+   stacked on glass; half sheets float inset with larger, concentric corners;
+   full-height sheets turn opaque; honours Reduce Transparency, Increase
+   Contrast and Reduce Motion. iPhone GPUs handle real backdrop blur well, so
+   the live blur that is off on Android comes back here.
+   ===================================================================== */
+html.ios .glass-circle,
+html.ios .glass-chip {
+  position: relative;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.07));
+  border: 0.5px solid rgba(255, 255, 255, 0.42);
+  box-shadow:
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.7),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.16),
+    0 6px 18px rgba(3, 10, 40, 0.2);
+  -webkit-backdrop-filter: blur(14px) saturate(190%);
+  backdrop-filter: blur(14px) saturate(190%);
+}
+/* specular highlight: light caught on the glass edge */
+html.ios .glass-circle::before,
+html.ios .glass-chip::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(120% 90% at 28% 0%, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0) 55%);
+  pointer-events: none;
+}
+html.ios .glass-circle > *,
+html.ios .glass-chip > * {
+  position: relative;
+}
+
+/* web tab bar (iOS < 26 fallback): same glass recipe */
+html.ios .tabbar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(246, 247, 250, 0.42));
+  border: 0.5px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.95),
+    0 12px 32px rgba(7, 26, 74, 0.16);
+  -webkit-backdrop-filter: blur(22px) saturate(190%);
+  backdrop-filter: blur(22px) saturate(190%);
+}
+
+/* sheets: larger radius; half sheets float inset in glass, full ones opaque */
+html.ios .modal-sheet.half {
+  inset-inline: 8px;
+  bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  border-radius: 44px;
+  padding-bottom: 20px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 0.5px solid rgba(255, 255, 255, 0.9);
+  box-shadow: inset 0 1px 0.5px #fff, 0 20px 50px rgba(5, 15, 51, 0.25);
+  -webkit-backdrop-filter: blur(30px) saturate(190%);
+  backdrop-filter: blur(30px) saturate(190%);
+}
+html.ios .modal-sheet.full {
+  border-radius: 38px 38px 0 0;
+}
+html.ios .modal-sheet.half .insight,
+html.ios .modal-sheet.half .chip:not(.on) {
+  background: rgba(118, 118, 128, 0.12);
+}
+
+/* toast: dark glass capsule */
+html.ios .toast {
+  background: rgba(28, 28, 30, 0.6);
+  border: 0.5px solid rgba(255, 255, 255, 0.18);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* scroll edge effect: content softly blurs as it slides under the tab bar */
+html.ios .list-fade {
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 60%);
+  mask-image: linear-gradient(180deg, transparent, #000 60%);
+}
+
+/* Reduce Transparency: frosted becomes solid */
+html.ios.reduce-transparency .glass-circle,
+html.ios.reduce-transparency .glass-chip {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: #1b3f86;
+}
+html.ios.reduce-transparency .glass-circle::before,
+html.ios.reduce-transparency .glass-chip::before {
+  display: none;
+}
+html.ios.reduce-transparency .modal-sheet.half,
+html.ios.reduce-transparency .tabbar {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: #fff;
+}
+html.ios.reduce-transparency .toast {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: #1c1c1e;
+}
+html.ios.reduce-transparency .list-fade {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Increase Contrast: stronger edges */
+html.ios.increase-contrast .glass-circle,
+html.ios.increase-contrast .glass-chip {
+  border: 1px solid rgba(255, 255, 255, 0.85);
+}
+html.ios.increase-contrast .modal-sheet.half,
+html.ios.increase-contrast .tabbar {
+  border: 1px solid rgba(0, 0, 0, 0.35);
+}
