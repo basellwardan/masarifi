@@ -46,9 +46,48 @@ jobs:
                       print(dev['udid']); sys.exit()
           ")
           echo "Simulator: $SIM"
+          echo "SIM=$SIM" >> "$GITHUB_ENV"
           xcodebuild test -project Masarifi.xcodeproj -scheme Masarifi \
             -destination "id=$SIM" -quiet \
             CODE_SIGNING_ALLOWED=NO
+
+      # Launch the debug build in the simulator with sample data and take a
+      # screenshot of every screen, to compare with the Android build.
+      - name: Screenshots
+        continue-on-error: true
+        run: |
+          xcodebuild build -project Masarifi.xcodeproj -scheme Masarifi -configuration Debug             -destination "id=$SIM" -derivedDataPath "$RUNNER_TEMP/dd" -quiet CODE_SIGNING_ALLOWED=NO
+          xcrun simctl boot "$SIM" 2>/dev/null || true
+          xcrun simctl bootstatus "$SIM" -b
+          xcrun simctl status_bar "$SIM" override --time 9:41 --batteryState charged --batteryLevel 100 || true
+          xcrun simctl install "$SIM" "$RUNNER_TEMP/dd/Build/Products/Debug-iphonesimulator/Masarifi.app"
+          mkdir -p "$GITHUB_WORKSPACE/shots"
+          shot() {
+            name=$1; shift
+            xcrun simctl terminate "$SIM" com.masarifi.app 2>/dev/null || true
+            xcrun simctl launch "$SIM" com.masarifi.app "$@"
+            sleep 6
+            xcrun simctl io "$SIM" screenshot "$GITHUB_WORKSPACE/shots/$name.png"
+          }
+          shot 1-home -uiDemo -uiTab 0
+          shot 2-transactions -uiDemo -uiTab 1
+          shot 3-stats -uiDemo -uiTab 2
+          shot 4-voice -uiDemo -uiTab 3
+          shot 5-settings -uiDemo -uiTab 4
+          shot 6-add -uiDemo -uiTab 0 -uiSheet add
+          shot 7-month -uiDemo -uiTab 2 -uiSheet month
+          shot 8-notifications -uiDemo -uiTab 0 -uiSheet notifications
+          shot 9-welcome -uiWelcome
+          shot 10-home-en -uiDemo -uiTab 0 -uiLang en
+          shot 11-stats-en -uiDemo -uiTab 2 -uiLang en
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: shots/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Archive (unsigned)
         run: |

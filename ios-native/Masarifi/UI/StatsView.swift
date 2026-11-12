@@ -2,8 +2,8 @@ import SwiftUI
 
 struct StatsView: View {
     @Environment(AppStore.self) private var store
-    @Namespace private var glass
-    @State private var shown = false
+    @Environment(\.metrics) private var metrics
+    @State private var sheetIn = false
 
     private static let maxBubbles = 6
 
@@ -13,38 +13,23 @@ struct StatsView: View {
         let total = AppStore.sum(month, .expense)
         let items = Self.topItems(month, othersLabel: t.others)
 
-        NavigationStack {
-            ZStack(alignment: .bottom) {
-                Palette.screen.ignoresSafeArea()
-                VStack(spacing: 0) {
-                    GeometryReader { geo in
-                        bubbles(items: items, total: total, size: geo.size, t: t)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
+        VStack(spacing: 0) {
+            GradHeader(title: DateText.monthTitle(store.viewMonth, store.settings.lang), action: AnyView(
+                GlassCircleButton(icon: .calendar, label: t.pickMonth) { store.openSheet(.month) }
+            ))
 
-                    sheet(items: items, total: total, t: t)
-                }
+            GeometryReader { geo in
+                BubbleField(items: items, total: total, size: geo.size, emptyText: t.noStats, fallbackLabel: t.expense)
+                    .id(store.viewMonth)
             }
-            .navigationTitle(DateText.monthTitle(store.viewMonth, store.settings.lang))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { store.sheet = .month } label: { Image(systemName: "calendar") }
-                        .accessibilityLabel(t.pickMonth)
-                }
-            }
-            .onAppear {
-                shown = false
-                withAnimation(.spring(response: 0.7, dampingFraction: 0.72).delay(0.05)) { shown = true }
-            }
-            .onChange(of: store.viewMonth) {
-                shown = false
-                withAnimation(.spring(response: 0.7, dampingFraction: 0.72).delay(0.05)) { shown = true }
-            }
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+
+            sheet(items: items, total: total, t: t)
+                .offset(y: sheetIn ? 0 : 120)
         }
+        .background(Palette.screen)
+        .onAppear { withAnimation(.framer(200, 26)) { sheetIn = true } }
     }
 
     /// The five biggest things the money went on, plus one "Others" bubble for the rest.
@@ -58,126 +43,179 @@ struct StatsView: View {
         return items
     }
 
-    @ViewBuilder
-    private func bubbles(items: [SpendItem], total: Double, size: CGSize, t: Strings) -> some View {
-        if items.isEmpty {
-            VStack(spacing: 18) {
-                Circle().fill(.clear).frame(width: 150, height: 150).liquidGlass(Circle(), clear: true)
-                Text(t.noStats).foregroundStyle(.white.opacity(0.75))
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            let placed = BubbleLayout.place(count: items.count, in: size)
-            // one container: neighbouring glass bubbles blend and morph together
-            GlassGroup(spacing: 18) {
-                ZStack {
-                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                        let p = placed[index]
-                        BubbleView(
-                            item: item,
-                            label: item.label.isEmpty ? t.expense : item.label,
-                            share: total > 0 ? item.total / total : 0,
-                            diameter: p.size,
-                            shown: shown
-                        )
-                        .glassID(item.id, in: glass)
-                        .scaleEffect(shown ? 1 : 0.2)
-                        .opacity(shown ? 1 : 0)
-                        .animation(.spring(response: 0.6, dampingFraction: 0.68).delay(Double(index) * 0.06), value: shown)
-                        .position(x: p.x * size.width, y: p.y * size.height)
-                    }
-                }
-                .frame(width: size.width, height: size.height)
-            }
-        }
-    }
-
     private func sheet(items: [SpendItem], total: Double, t: Strings) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
-                Text(t.expenses).font(.system(size: 23, weight: .semibold))
+                Text(t.expenses).ui(23, .semibold).foregroundStyle(Palette.ink)
                 Spacer()
-                Button(t.viewAll) { store.tab = .tx }.foregroundStyle(Palette.muted)
+                Button(t.viewAll) { store.setTab(.tx) }
+                    .buttonStyle(.plain)
+                    .ui(16)
+                    .foregroundStyle(Palette.muted)
             }
-            MoneyText(value: total, size: 44, weight: .medium, fracColor: Color(hex: 0xB9BABE))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
+            MoneyView(value: total, style: .big(metrics.width), countUp: true)
+                .padding(.top, 14)
+                .padding(.bottom, 18)
             HStack(spacing: 10) {
                 ForEach(0..<2, id: \.self) { i in
-                    let item = i < items.count ? items[i] : nil
-                    VStack(alignment: .leading) {
-                        HStack(alignment: .top) {
-                            Text(item.map { $0.label.isEmpty ? t.expense : $0.label } ?? "—")
-                                .font(.system(size: 13.5))
-                                .lineLimit(2)
-                            Spacer()
-                            if let item {
-                                Image(systemName: item.isOthers ? "ellipsis" : IconHints.symbol(for: item.label, type: .expense))
-                                    .foregroundStyle(Color(hex: 0x8D8E93))
-                            }
-                        }
-                        Spacer(minLength: 12)
-                        MoneyText(value: item?.total ?? 0, size: 18, weight: .medium)
-                    }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
-                    .background(Palette.tile, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    StatTile(item: i < items.count ? items[i] : nil, fallbackLabel: t.expense)
+                        .modifier(Rise(index: i, distance: 14, delay: 0.25 + Double(i) * 0.08))
                 }
             }
         }
         .padding(.horizontal, 20)
         .padding(.top, 24)
-        .padding(.bottom, 100)
-        .background(.white, in: UnevenRoundedRectangle(topLeadingRadius: 34, topTrailingRadius: 34, style: .continuous))
-        .ignoresSafeArea(edges: .bottom)
+        .padding(.bottom, metrics.bottom + 92)
+        .background(
+            WhiteSheetShape()
+                .fill(.white)
+                .shadow(color: Color(hex: 0x050F33, opacity: 0.18), radius: 15, y: -8)
+        )
+    }
+}
+
+struct StatTile: View {
+    let item: SpendItem?
+    let fallbackLabel: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 8) {
+                Text(item.map { $0.label.isEmpty ? fallbackLabel : $0.label } ?? "—")
+                    .ui(13.5)
+                    .foregroundStyle(Palette.ink2)
+                    .lineLimit(2)
+                    .lineSpacing(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if let item {
+                    Icon(item.isOthers ? .ellipsis : IconHints.icon(for: item.label, type: .expense), size: 17, stroke: 1.6)
+                        .foregroundStyle(Palette.tileIcon)
+                }
+            }
+            Spacer(minLength: 14)
+            MoneyView(value: item?.total ?? 0, style: .tile)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
+        .background(Palette.tile, in: RoundedRectangle(cornerRadius: 18, style: .circular))
+    }
+}
+
+/// Up to six Liquid Glass bubbles placed like the reference layout.
+struct BubbleField: View {
+    let items: [SpendItem]
+    let total: Double
+    let size: CGSize
+    let emptyText: String
+    let fallbackLabel: String
+    @State private var shown = false
+
+    var body: some View {
+        Group {
+            if items.isEmpty {
+                VStack(spacing: 18) {
+                    Color.clear
+                        .frame(width: 150, height: 150)
+                        .darkGlass(Circle(), fill: 0.12)
+                    Text(emptyText).ui(16).foregroundStyle(.white.opacity(0.75))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .scaleEffect(shown ? 1 : 0.9)
+                .opacity(shown ? 1 : 0)
+            } else {
+                let placed = BubbleLayout.place(count: items.count, in: size)
+                GlassGroup {
+                    ZStack {
+                        ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                            let p = placed[index]
+                            BubbleView(
+                                item: item,
+                                label: item.label.isEmpty ? fallbackLabel : item.label,
+                                share: total > 0 ? item.total / total : 0,
+                                diameter: p.size,
+                                index: index,
+                                shown: shown
+                            )
+                            .position(x: p.x * size.width, y: p.y * size.height)
+                        }
+                    }
+                    .frame(width: size.width, height: size.height)
+                }
+                // slot positions are absolute (left/top), like the CSS
+                .environment(\.layoutDirection, .leftToRight)
+            }
+        }
+        .onAppear { withAnimation(.easeOut(duration: 0.3)) { shown = true } }
     }
 }
 
 /// A glass circle with a lighter pie slice for its share and a thin white arc
-/// just outside the edge (the reference design), in real Liquid Glass.
+/// just outside the edge.
 struct BubbleView: View {
+    @Environment(\.appLang) private var lang
     let item: SpendItem
     let label: String
     let share: Double
     let diameter: CGFloat
+    let index: Int
     let shown: Bool
+    @State private var popped = false
+    @State private var filled = false
 
     var body: some View {
         let small = diameter < 110
         ZStack {
+            // lighter pie sector for the share
             Circle()
-                .trim(from: 0, to: shown ? share : 0)
+                .trim(from: 0, to: filled ? share : 0)
                 .stroke(Color.white.opacity(0.16), lineWidth: diameter / 2)
                 .frame(width: diameter / 2, height: diameter / 2)
                 .rotationEffect(.degrees(-90))
-                .animation(.easeOut(duration: 1.1).delay(0.3), value: shown)
+            // thin white arc just outside the edge
             Circle()
-                .trim(from: 0, to: shown ? share : 0)
+                .trim(from: 0, to: filled ? share : 0)
                 .stroke(
-                    AngularGradient(colors: [.white.opacity(0.15), .white, .white], center: .center,
-                                    startAngle: .degrees(0), endAngle: .degrees(360 * max(share, 0.01))),
-                    style: StrokeStyle(lineWidth: 1.6, lineCap: .round)
+                    LinearGradient(stops: [.init(color: .white.opacity(0.15), location: 0),
+                                           .init(color: .white, location: 0.35)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing),
+                    style: StrokeStyle(lineWidth: diameter * 0.016, lineCap: .round)
                 )
                 .frame(width: diameter * 1.06, height: diameter * 1.06)
                 .rotationEffect(.degrees(-90))
-                .animation(.easeOut(duration: 1.1).delay(0.3), value: shown)
-            VStack(spacing: 3) {
-                Image(systemName: item.isOthers ? "ellipsis" : IconHints.symbol(for: item.label, type: .expense))
-                    .font(.system(size: max(15, diameter * 0.13)))
+
+            VStack(spacing: 0) {
+                Icon(item.isOthers ? .ellipsis : IconHints.icon(for: item.label, type: .expense),
+                     size: max(18, diameter * 0.13), stroke: 1.5)
                 Text(label)
-                    .font(.system(size: small ? 10.5 : 12))
+                    .font(AppFont.ui(small ? 10.5 : 12, .regular, lang))
                     .lineLimit(small ? 2 : 3)
                     .multilineTextAlignment(.center)
-                    .frame(maxWidth: diameter * 0.78)
-                Text(String(format: "%.1f%%", share * 100))
-                    .font(.system(size: small ? 13 : 15, weight: .semibold))
-                    .monospacedDigit()
-                    .environment(\.layoutDirection, .leftToRight)
+                    .lineSpacing(1)
+                    .opacity(0.95)
+                    .padding(.horizontal, 10)
+                    .frame(maxWidth: diameter * 0.8)
+                    .padding(.top, 6)
+                Text(Self.percent(share * 100, lang))
+                    .font(AppFont.num(15, .semibold))
+                    .tracking(-0.3)
+                    .padding(.top, 2)
             }
             .foregroundStyle(.white)
         }
         .frame(width: diameter, height: diameter)
-        .liquidGlass(Circle(), tint: .white.opacity(0.04), interactive: true, clear: true)
+        .darkGlass(Circle(), fill: 0.12, interactive: true)
+        .scaleEffect(popped ? 1 : 0.01)
+        .opacity(popped ? 1 : 0)
+        .onAppear {
+            withAnimation(.framer(160, 15).delay(0.08 + Double(index) * 0.07)) { popped = true }
+            withAnimation(.easeOutApp(1.1).delay(0.35 + Double(index) * 0.07)) { filled = true }
+        }
+    }
+
+    /// "14.4%" in Arabic, "14,4%" in English (same locales as the Android build).
+    static func percent(_ v: Double, _ lang: Lang) -> String {
+        let s = String(format: "%.1f", v)
+        return (lang == .ar ? s : s.replacingOccurrences(of: ".", with: ",")) + "%"
     }
 }
 

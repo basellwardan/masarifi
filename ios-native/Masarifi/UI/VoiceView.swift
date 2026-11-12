@@ -4,193 +4,240 @@ import SwiftUI
 /// came in or went out, the amount, and keeps your exact words.
 struct VoiceView: View {
     @Environment(AppStore.self) private var store
-    @Environment(\.dismiss) private var dismiss
-    var asSheet = false
+    @Environment(\.metrics) private var metrics
 
     @State private var listener = SpeechListener()
+    @State private var text = ""
     @State private var result: ParsedVoice?
-    @State private var message: String?
-    @Namespace private var glass
+    @State private var error = ""
+    @State private var micIn = false
 
     var body: some View {
         let t = store.t
-        NavigationStack {
-            ZStack {
-                Palette.screen.ignoresSafeArea()
+        let listening = listener.isListening
+        let amount = result.flatMap { amountNew($0) }
+        let showSheet = amount != nil
+
+        ZStack(alignment: .bottom) {
+            VStack(spacing: 0) {
+                GradHeader(title: t.voice)
+
                 VStack(spacing: 26) {
-                    Spacer()
-                    GlassGroup(spacing: 30) {
-                        VStack(spacing: 30) {
-                            micButton(t)
-                            if let result, let amount = amountNew(result) {
-                                resultCard(result, amount: amount, t: t)
-                                    .glassID("result", in: glass)
-                            }
-                        }
-                    }
-                    status(t)
-                    if result == nil && !listener.isListening {
+                    mic(listening, t)
+                    status(listening, t)
+                        .frame(minHeight: 90, alignment: .top)
+                    if !listening && !showSheet {
                         examples(t)
+                            .transition(.opacity)
                     }
-                    Spacer()
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, asSheet ? 20 : 90)
+                .padding(.horizontal, 28)
+                .frame(maxHeight: .infinity)
+
+                Color.clear.frame(height: metrics.bottom + 90)
             }
-            .navigationTitle(t.voice)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                if asSheet {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button(role: .cancel) { listener.cancel(); dismiss() } label: { Image(systemName: "xmark") }
-                    }
-                }
+
+            if let result, let amount {
+                resultSheet(result, amount: amount, t: t)
+                    .transition(.move(edge: .bottom))
+                    .zIndex(5)
             }
         }
+        .background(Palette.screen)
+        .animation(.framer(260, 30), value: showSheet)
+        .animation(.easeOut(duration: 0.2), value: listening)
         .onDisappear { listener.cancel() }
+        .onChange(of: listener.transcript) {
+            if listener.isListening { text = listener.transcript }
+        }
         .onChange(of: listener.failure) {
             switch listener.failure {
-            case .denied: message = t.micDenied
-            case .unavailable: message = t.micUnavailable
-            case .failed: message = t.didntCatch
+            case .denied: error = t.micDenied
+            case .unavailable: error = t.micUnavailable
+            case .failed: error = t.didntCatch
             case nil: break
             }
         }
     }
 
-    private func micButton(_ t: Strings) -> some View {
-        Button {
-            if listener.isListening {
-                listener.stop()
-            } else {
-                Haptic.tap()
-                withAnimation(.snappy) { result = nil; message = nil }
-                listener.start(lang: store.settings.lang) { text in handle(text) }
-            }
-        } label: {
-            ZStack {
-                // rings that swell with your voice
-                ForEach(0..<2, id: \.self) { i in
-                    Circle()
-                        .stroke(.white.opacity(listener.isListening ? 0.22 - Double(i) * 0.08 : 0), lineWidth: 1.5)
-                        .scaleEffect(listener.isListening ? 1.12 + listener.level * (0.25 + CGFloat(i) * 0.2) : 1)
-                        .animation(.easeOut(duration: 0.18), value: listener.level)
+    // MARK: pieces
+
+    private func mic(_ listening: Bool, _ t: Strings) -> some View {
+        ZStack {
+            if listening {
+                ForEach(0..<3, id: \.self) { i in
+                    PulseRing(delay: Double(i) * 0.8)
                 }
-                Image(systemName: listener.isListening ? "stop.fill" : "mic")
-                    .font(.system(size: listener.isListening ? 34 : 46, weight: .light))
-                    .contentTransition(.symbolEffect(.replace))
-                    .foregroundStyle(.white)
             }
-            .frame(width: 176, height: 176)
-            .contentShape(Circle())
+            Button(action: toggle) {
+                ZStack {
+                    if listening {
+                        Icon(.square, size: 34, stroke: 1.4, filled: true)
+                            .transition(.scale(scale: 0.5).combined(with: .opacity))
+                    } else {
+                        Icon(.mic, size: 46, stroke: 1.3)
+                            .transition(.scale(scale: 0.5).combined(with: .opacity))
+                    }
+                }
+                .foregroundStyle(.white)
+                .frame(width: 180, height: 180)
+                .contentShape(Circle())
+                .animation(.easeOut(duration: 0.18), value: listening)
+            }
+            .buttonStyle(PressStyle(scale: 0.94))
+            .darkGlass(Circle(), fill: 0.12, interactive: true)
+            .scaleEffect(micIn ? (listening ? 1.06 : 1) : 0.6)
+            .opacity(micIn ? 1 : 0)
+            .animation(.framer(220, 16), value: listening)
+            .accessibilityLabel(t.tapToSpeak)
         }
-        .buttonStyle(.plain)
-        .liquidGlass(Circle(), tint: listener.isListening ? Color(hex: 0x3CC6D4, opacity: 0.25) : nil, interactive: true, clear: true)
-        .glassID("mic", in: glass)
-        .scaleEffect(listener.isListening ? 1.05 : 1)
-        .animation(.spring(response: 0.4, dampingFraction: 0.6), value: listener.isListening)
-        .accessibilityLabel(t.tapToSpeak)
+        .frame(width: 180, height: 180)
+        .onAppear { withAnimation(.framer(220, 16)) { micIn = true } }
     }
 
-    private func status(_ t: Strings) -> some View {
-        VStack(spacing: 8) {
-            Text(listener.isListening ? (listener.transcript.isEmpty ? t.listening : "“\(listener.transcript)”")
-                 : (result == nil ? t.tapToSpeak : ""))
-                .font(.system(size: 20, weight: .semibold))
-                .multilineTextAlignment(.center)
+    private func status(_ listening: Bool, _ t: Strings) -> some View {
+        let key = listening ? "l" : !text.isEmpty ? "tx" : !error.isEmpty ? "e" : "idle"
+        return VStack(spacing: 8) {
+            Text(listening ? (text.isEmpty ? t.listening : "“\(text)”") : !text.isEmpty ? "“\(text)”" : t.tapToSpeak)
+                .ui(20, .semibold)
                 .foregroundStyle(.white)
-                .contentTransition(.opacity)
-            if let message {
-                Text(message).font(.subheadline).foregroundStyle(Color(hex: 0xFFD2D2)).multilineTextAlignment(.center)
-            } else if result == nil && !listener.isListening {
-                Text(t.voiceHint).font(.subheadline).foregroundStyle(.white.opacity(0.65)).multilineTextAlignment(.center)
+            let sub = !error.isEmpty ? error : (text.isEmpty && !listening ? t.voiceHint : "")
+            if !sub.isEmpty {
+                Text(sub)
+                    .ui(14.5)
+                    .foregroundStyle(!error.isEmpty ? Color(hex: 0xFFD2D2) : .white.opacity(0.65))
             }
         }
-        .animation(.snappy, value: listener.transcript)
+        .multilineTextAlignment(.center)
+        .id(key)
+        .transition(.asymmetric(insertion: .offset(y: 8).combined(with: .opacity),
+                                removal: .offset(y: -8).combined(with: .opacity)))
+        .animation(.easeOut(duration: 0.2), value: key)
     }
 
     private func examples(_ t: Strings) -> some View {
-        GlassGroup(spacing: 10) {
-            VStack(spacing: 8) {
-                ForEach(t.voiceExamples, id: \.self) { example in
-                    Button(example) { handle(example) }
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 9)
-                        .liquidGlass(Capsule(), interactive: true, clear: true)
+        GlassGroup {
+            FlowLayout(spacing: 8) {
+                ForEach(Array(t.voiceExamples.enumerated()), id: \.offset) { i, example in
+                    Button { handle(example) } label: {
+                        Text(example)
+                            .ui(13.5)
+                            .foregroundStyle(.white.opacity(0.85))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6)
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(PressStyle(scale: 0.95))
+                    .darkGlass(Capsule(), interactive: true)
+                    .modifier(Rise(index: i, distance: 10, delay: 0.15 + Double(i) * 0.07))
                 }
             }
         }
-        .transition(.opacity.combined(with: .scale(scale: 0.95)))
     }
 
-    private func resultCard(_ r: ParsedVoice, amount: Double, t: Strings) -> some View {
-        VStack(spacing: 14) {
-            HStack {
-                Label(r.type == .expense ? t.expense : t.incomeOne,
-                      systemImage: r.type == .expense ? "arrow.up.right" : "arrow.down.right")
-                    .font(.subheadline.weight(.semibold))
+    private func resultSheet(_ r: ParsedVoice, amount: Double, t: Strings) -> some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(r.type == .expense ? t.expense : t.incomeOne).ui(23, .semibold).foregroundStyle(Palette.ink)
                 Spacer()
-                Image(systemName: IconHints.symbol(for: r.note, type: r.type))
+                Button(t.cancel) { result = nil }
+                    .buttonStyle(.plain)
+                    .ui(16)
+                    .foregroundStyle(Palette.muted)
             }
-            .foregroundStyle(.white.opacity(0.85))
-            MoneyText(value: amount, size: 40, weight: .semibold, color: .white,
-                      fracColor: .white.opacity(0.55), symbolColor: .white.opacity(0.75))
-            Text(r.note)
-                .font(.system(size: 15))
-                .foregroundStyle(.white)
-                .multilineTextAlignment(.center)
-            HStack(spacing: 10) {
-                Button(t.edit) { edit(r, amount: amount) }
-                    .frame(maxWidth: .infinity)
-                    .controlSize(.large)
-                    .glassButton()
-                    .tint(.white)
-                Button(t.confirm) { confirm(r, amount: amount) }
-                    .frame(maxWidth: .infinity)
-                    .controlSize(.large)
-                    .glassButton(prominent: true)
-                    .tint(Palette.blue)
+            MoneyView(value: amount, style: .big(metrics.width))
+                .padding(.top, 14)
+                .padding(.bottom, 18)
+            HStack(alignment: .top, spacing: 8) {
+                Text(r.note)
+                    .ui(15, .semibold)
+                    .foregroundStyle(Palette.ink2)
+                    .lineSpacing(4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Icon(IconHints.icon(for: r.note, type: r.type), size: 18, stroke: 1.6)
+                    .foregroundStyle(Palette.tileIcon)
             }
-            .font(.headline)
+            .padding(16)
+            .background(Palette.tile, in: RoundedRectangle(cornerRadius: 18, style: .circular))
+            GlassGroup {
+                HStack(spacing: 8) {
+                    PillButton { edit(r, amount: amount) } label: { Text(t.edit) }
+                    PillButton(black: true) { confirm(r, amount: amount) } label: { Text(t.confirm) }
+                }
+            }
+            .padding(.top, 16)
         }
-        .padding(20)
-        .liquidGlass(RoundedRectangle(cornerRadius: 30, style: .continuous), clear: true)
-        .transition(.scale(scale: 0.6).combined(with: .opacity))
+        .padding(.horizontal, 20)
+        .padding(.top, 24)
+        .padding(.bottom, metrics.bottom + 92)
+        .background(
+            WhiteSheetShape()
+                .fill(.white)
+                .shadow(color: Color(hex: 0x050F33, opacity: 0.18), radius: 15, y: -8)
+        )
     }
+
+    // MARK: actions
 
     private func amountNew(_ r: ParsedVoice) -> Double? {
         guard let a = r.amount else { return nil }
-        return Currency.toNew(a, r.unit ?? store.settings.currency, rate: store.settings.usdRate)
+        let v = Currency.toNew(a, r.unit ?? store.settings.currency, rate: store.settings.usdRate)
+        return v > 0 ? v : nil
     }
 
-    private func handle(_ text: String) {
-        guard !text.isEmpty else { return }
-        let parsed = VoiceParser.parse(text)
-        withAnimation(.spring(response: 0.55, dampingFraction: 0.78)) {
-            result = parsed
-            message = parsed.amount == nil ? store.t.didntCatch : nil
+    private func toggle() {
+        if listener.isListening {
+            listener.stop()
+            return
         }
+        Haptic.medium()
+        result = nil
+        error = ""
+        text = ""
+        listener.start(lang: store.settings.lang) { spoken in
+            if !spoken.isEmpty { handle(spoken) }
+        }
+    }
+
+    private func handle(_ spoken: String) {
+        text = spoken
+        let p = VoiceParser.parse(spoken)
+        result = p
+        error = p.amount == nil ? store.t.didntCatch : ""
     }
 
     private func confirm(_ r: ParsedVoice, amount: Double) {
-        Haptic.success()
-        withAnimation { store.addTx(type: r.type, amount: amount, note: r.note) }
+        Haptic.medium()
+        withAnimation(.framer(300, 30)) { store.addTx(type: r.type, amount: amount, note: r.note) }
+        store.showToast(store.t.saved)
         result = nil
-        if asSheet { dismiss() } else { store.tab = .home }
+        text = ""
+        store.setTab(.home)
     }
 
     private func edit(_ r: ParsedVoice, amount: Double) {
+        store.openSheet(.add(r.type, editID: nil, prefill: .init(amount: amount, note: r.note)))
         result = nil
-        let sheet = ActiveSheet.add(r.type, editID: nil, prefill: .init(amount: amount, note: r.note))
-        if asSheet {
-            dismiss()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { store.sheet = sheet }
-        } else {
-            store.sheet = sheet
-        }
+        text = ""
+    }
+}
+
+/// Soft ring that swells out of the mic bubble while listening.
+private struct PulseRing: View {
+    let delay: Double
+    @State private var go = false
+
+    var body: some View {
+        Circle()
+            .fill(RadialGradient(colors: [.white.opacity(0.2), .white.opacity(0.06)],
+                                 center: UnitPoint(x: 0.5, y: 0.28), startRadius: 0, endRadius: 90))
+            .overlay(Circle().stroke(.white.opacity(0.16), lineWidth: 1))
+            .frame(width: 180, height: 180)
+            .scaleEffect(go ? 1.9 : 1)
+            .opacity(go ? 0 : 0.6)
+            .onAppear {
+                withAnimation(.easeOut(duration: 2.4).repeatForever(autoreverses: false).delay(delay)) { go = true }
+            }
+            .allowsHitTesting(false)
     }
 }

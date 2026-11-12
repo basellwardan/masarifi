@@ -6,7 +6,6 @@ enum ActiveSheet: Identifiable, Equatable {
     case add(TxType, editID: String?, prefill: Prefill?)
     case month
     case notifications
-    case voice
 
     struct Prefill: Equatable {
         var amount: Double? // new SYP
@@ -18,13 +17,20 @@ enum ActiveSheet: Identifiable, Equatable {
         case .add(let type, let edit, _): return "add-\(type.rawValue)-\(edit ?? "new")"
         case .month: return "month"
         case .notifications: return "notifications"
-        case .voice: return "voice"
         }
     }
 }
 
-enum AppTab: Hashable {
+enum AppTab: Int, Hashable, CaseIterable {
     case home, tx, stats, voice, settings
+}
+
+/// Black pill at the bottom ("Saved", "Deleted · Undo").
+struct Toast: Equatable {
+    var id = UUID()
+    var message: String
+    /// a deleted transaction the Undo button puts back
+    var undo: Tx?
 }
 
 @Observable
@@ -37,12 +43,110 @@ final class AppStore {
     // UI state (not saved)
     var viewMonth = MonthKey.current
     var sheet: ActiveSheet?
-    var tab: AppTab = .home
+    private(set) var tab: AppTab = .home
+    /// +1 when moving right along the tab bar, -1 when moving left
+    private(set) var tabDirection: CGFloat = 1
+    var toast: Toast?
 
     private static let key = "masarifi.native.v1"
+    private var saveWork: DispatchWorkItem?
+    private var toastWork: DispatchWorkItem?
 
     init() {
         load()
+        #if DEBUG
+        applyScreenshotArguments()
+        #endif
+        watchForChanges()
+    }
+
+    #if DEBUG
+    /// Simulator screenshots on CI: `-uiDemo` loads sample data, `-uiTab 2`
+    /// opens a tab, `-uiSheet add|month|notifications`, `-uiLang en`,
+    /// `-uiWelcome` shows onboarding. Not compiled into release builds.
+    private func applyScreenshotArguments() {
+        let args = ProcessInfo.processInfo.arguments
+        let defaults = UserDefaults.standard
+        guard args.contains("-uiDemo") || args.contains("-uiWelcome") else { return }
+        settings = AppSettings(lang: defaults.string(forKey: "uiLang") == "en" ? .en : .ar, currency: .sypNew, usdRate: 110)
+        profile = Profile(name: "سام", photo: nil, openingBalance: 9500)
+        let cal = Calendar.current
+        func day(_ back: Int, _ hour: Int, _ minute: Int) -> Date {
+            let d = cal.date(byAdding: .day, value: -back, to: Date()) ?? Date()
+            return cal.date(bySettingHour: hour, minute: minute, second: 0, of: d) ?? d
+        }
+        txs = [
+            Tx(id: "d1", type: .expense, amount: 50, note: "صرفت خمسين ليرة على قهوة", date: day(0, 11, 0)),
+            Tx(id: "d2", type: .expense, amount: 604.36, note: "سوبرماركت الشام", date: day(0, 9, 42)),
+            Tx(id: "d3", type: .income, amount: 1875.5, note: "", date: day(0, 8, 15)),
+            Tx(id: "d4", type: .expense, amount: 24, note: "رصيد موبايل", date: day(1, 10, 22)),
+            Tx(id: "d5", type: .expense, amount: 25, note: "دفعت 25 تكسي للجامعة", date: day(1, 9, 0)),
+            Tx(id: "d6", type: .expense, amount: 296.65, note: "جاكيت شتوي", date: day(2, 18, 5)),
+            Tx(id: "d7", type: .expense, amount: 207, note: "اشتراك النادي", date: day(2, 17, 30)),
+            Tx(id: "d8", type: .expense, amount: 273, note: "قهوة مع الشباب", date: day(3, 20, 10)),
+            Tx(id: "d9", type: .expense, amount: 154, note: "صيدلية", date: day(3, 12, 0)),
+            Tx(id: "d10", type: .expense, amount: 420, note: "ايجار", date: day(4, 9, 0)),
+            Tx(id: "d11", type: .expense, amount: 98.8, note: "خبز وخضرة", date: day(4, 8, 0)),
+            Tx(id: "d12", type: .income, amount: 500, note: "الراتب", date: day(5, 9, 0)),
+        ]
+        onboarded = !args.contains("-uiWelcome")
+        tab = AppTab(rawValue: defaults.integer(forKey: "uiTab")) ?? .home
+        switch defaults.string(forKey: "uiSheet") {
+        case "add": sheet = .add(.expense, editID: nil, prefill: nil)
+        case "month": sheet = .month
+        case "notifications": sheet = .notifications
+        default: break
+        }
+    }
+    #endif
+
+    // MARK: navigation
+    func setTab(_ next: AppTab) {
+        guard next != tab else { return }
+        // set the direction first so the outgoing screen slides the right way
+        tabDirection = next.rawValue > tab.rawValue ? 1 : -1
+        DispatchQueue.main.async { self.tab = next }
+    }
+
+    func openSheet(_ s: ActiveSheet) { sheet = s }
+    func closeSheet() { sheet = nil }
+
+    func showToast(_ message: String, undo: Tx? = nil) {
+        toastWork?.cancel()
+        toast = Toast(message: message, undo: undo)
+        let work = DispatchWorkItem { [weak self] in self?.toast = nil }
+        toastWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + (undo == nil ? 2.2 : 4.5), execute: work)
+    }
+
+    func hideToast() {
+        toastWork?.cancel()
+        toast = nil
+    }
+
+    /// Saves shortly after any saved field changes (batched, so typing a name
+    /// or a burst of edits writes once).
+    private func watchForChanges() {
+        withObservationTracking {
+            _ = persisted
+        } onChange: { [weak self] in
+            DispatchQueue.main.async {
+                self?.scheduleSave()
+                self?.watchForChanges()
+            }
+        }
+    }
+
+    private func scheduleSave() {
+        saveWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.save() }
+        saveWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
+    }
+
+    func saveNow() {
+        saveWork?.cancel()
+        save()
     }
 
     var t: Strings { Strings.of(settings.lang) }
@@ -63,8 +167,11 @@ final class AppStore {
     }
 
     func save() {
-        if let data = try? JSONEncoder().encode(persisted) {
-            UserDefaults.standard.set(data, forKey: Self.key)
+        let state = persisted
+        DispatchQueue.global(qos: .utility).async {
+            if let data = try? JSONEncoder().encode(state) {
+                UserDefaults.standard.set(data, forKey: Self.key)
+            }
         }
     }
 
@@ -88,8 +195,16 @@ final class AppStore {
         txs[i].note = note
     }
 
-    func deleteTx(_ id: String) {
-        txs.removeAll { $0.id == id }
+    @discardableResult
+    func deleteTx(_ id: String) -> Tx? {
+        guard let i = txs.firstIndex(where: { $0.id == id }) else { return nil }
+        return txs.remove(at: i)
+    }
+
+    func restoreTx(_ tx: Tx) {
+        guard !txs.contains(where: { $0.id == tx.id }) else { return }
+        txs.append(tx)
+        txs.sort { $0.date > $1.date }
     }
 
     func cycleCurrency() {
@@ -103,6 +218,8 @@ final class AppStore {
         profile = Profile()
         txs = []
         viewMonth = .current
+        tab = .home
+        sheet = nil
     }
 
     // MARK: derived

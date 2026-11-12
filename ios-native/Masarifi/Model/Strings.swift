@@ -11,8 +11,8 @@ struct Strings {
 
     var voiceExamples: [String] {
         lang == .ar
-            ? ["دفعت 25 تكسي", "قبضت الراتب ألفين ونص", "صرفت خمسين ليرة على قهوة"]
-            : ["Paid 25 for a taxi", "Received salary 2,500", "Spent 50 on coffee"]
+            ? ["دفعت 25 تكسي", "قبضت الراتب ألفين ونص", "قهوة بعشرين ليرة"]
+            : ["Taxi 2500", "Received salary 1.5 million", "Coffee 20 thousand"]
     }
 
     func currencyName(_ c: CurrencyCode) -> String { self[dynamicMember: c.rawValue] }
@@ -103,6 +103,10 @@ struct Strings {
         "allTransactions": "كل العمليات",
         "shareTitle": "مصاريفي",
         "swap": "تبديل العملة",
+        "copied": "انسخ الملخص",
+        "saved": "انحفظ",
+        "deleted": "انحذف",
+        "undo": "تراجع",
     ])
 
     static let en = Strings(lang: .en, table: [
@@ -189,6 +193,10 @@ struct Strings {
         "allTransactions": "All transactions",
         "shareTitle": "My Expenses",
         "swap": "Switch currency",
+        "copied": "Summary copied",
+        "saved": "Saved",
+        "deleted": "Deleted",
+        "undo": "Undo",
     ])
 }
 
@@ -240,34 +248,34 @@ enum DateText {
     }
 }
 
-/// Picks an SF Symbol that fits what the user wrote/said. There are no
-/// user-facing categories; this only chooses an icon.
+/// Picks a Lucide icon that fits what the user wrote/said (same keyword
+/// groups as src/lib/categories.ts). There are no user-facing categories.
 enum IconHints {
-    private static let groups: [(String, [String])] = [
-        ("cart", ["بقاله", "سوبرماركت", "ماركت", "خضره", "خضار", "فواكه", "فاكهه", "لحمه", "لحم", "خبز", "سمانه", "مونه", "grocery", "groceries", "market", "supermarket", "bread"]),
-        ("tshirt", ["تياب", "ثياب", "ملابس", "لباس", "قميص", "بنطلون", "كنزه", "جاكيت", "صباط", "حذاء", "كندره", "clothes", "shoes", "shirt", "jacket"]),
-        ("cross.case", ["دوا", "دواء", "ادويه", "صيدليه", "دكتور", "طبيب", "مشفى", "مستشفى", "تحاليل", "عياده", "اسنان", "pharmacy", "doctor", "medicine", "hospital"]),
-        ("dumbbell", ["نادي", "جيم", "رياضه", "كوره", "مسبح", "gym", "sport", "football"]),
-        ("cup.and.saucer", ["مطعم", "قهوه", "كافيه", "كافي", "اركيله", "نركيله", "اكل", "غدا", "عشا", "فطور", "شاورما", "فلافل", "بيتزا", "سندويش", "عصير", "restaurant", "coffee", "cafe", "lunch", "dinner", "breakfast", "food", "pizza"]),
-        ("bus", ["تكسي", "تاكسي", "سرفيس", "سرافيس", "باص", "بنزين", "مازوت", "سفر", "مواصلات", "تذكره", "طياره", "taxi", "bus", "fuel", "petrol", "travel", "ticket", "uber"]),
-        ("doc.text", ["كهربا", "كهرباء", "مياه", "نت", "انترنت", "فاتوره", "فواتير", "رصيد", "موبايل", "امبير", "امبيرات", "اشتراك", "bill", "bills", "internet", "electricity", "water", "phone"]),
-        ("house", ["ايجار", "اجار", "بيت", "غاز", "جره", "اثاث", "تصليح", "منظفات", "rent", "home", "house", "furniture"]),
-        ("graduationcap", ["جامعه", "كتب", "كتاب", "قسط", "دروس", "مدرسه", "دوره", "محاضرات", "نوطه", "university", "school", "books", "course", "tuition"]),
-        ("gift", ["هديه", "هدايا", "عيديه", "gift", "gifts", "present"]),
-        ("banknote", ["راتب", "معاش", "salary", "paycheck", "wage"]),
-        ("paperplane", ["حواله", "حوالات", "remittance", "transfer"]),
+    private static let groups: [(LucideIcon, [String])] = [
+        (.shoppingCart, ["بقاله", "سوبرماركت", "ماركت", "خضره", "خضار", "فواكه", "فاكهه", "لحمه", "لحم", "خبز", "سمانه", "مونه", "grocery", "groceries", "market", "supermarket", "bread"]),
+        (.shirt, ["تياب", "ثياب", "ملابس", "لباس", "قميص", "بنطلون", "كنزه", "جاكيت", "صباط", "حذاء", "كندره", "clothes", "shoes", "shirt", "jacket"]),
+        (.heartPulse, ["دوا", "دواء", "ادويه", "صيدليه", "دكتور", "طبيب", "مشفى", "مستشفى", "تحاليل", "عياده", "اسنان", "pharmacy", "doctor", "medicine", "hospital"]),
+        (.dumbbell, ["نادي", "جيم", "رياضه", "كوره", "مسبح", "gym", "sport", "football"]),
+        (.coffee, ["مطعم", "قهوه", "كافيه", "كافي", "اركيله", "نركيله", "اكل", "غدا", "عشا", "فطور", "شاورما", "فلافل", "بيتزا", "سندويش", "عصير", "restaurant", "coffee", "cafe", "lunch", "dinner", "breakfast", "food", "pizza"]),
+        (.bus, ["تكسي", "تاكسي", "سرفيس", "سرافيس", "باص", "بنزين", "مازوت", "سفر", "مواصلات", "تذكره", "طياره", "taxi", "bus", "fuel", "petrol", "travel", "ticket", "uber"]),
+        (.receipt, ["كهربا", "كهرباء", "مياه", "نت", "انترنت", "فاتوره", "فواتير", "رصيد", "موبايل", "امبير", "امبيرات", "اشتراك", "bill", "bills", "internet", "electricity", "water", "phone"]),
+        (.house, ["ايجار", "اجار", "بيت", "غاز", "جره", "اثاث", "تصليح", "منظفات", "rent", "home", "house", "furniture"]),
+        (.graduationCap, ["جامعه", "كتب", "كتاب", "قسط", "دروس", "مدرسه", "دوره", "محاضرات", "نوطه", "university", "school", "books", "course", "tuition"]),
+        (.gift, ["هديه", "هدايا", "عيديه", "gift", "gifts", "present"]),
+        (.wallet, ["راتب", "معاش", "salary", "paycheck", "wage"]),
+        (.send, ["حواله", "حوالات", "remittance", "transfer"]),
     ]
 
-    private static var cache: [String: String] = [:]
+    private static var cache: [String: LucideIcon] = [:]
 
-    static func symbol(for text: String, type: TxType) -> String {
+    static func icon(for text: String, type: TxType) -> LucideIcon {
         let key = "\(type.rawValue)|\(text)"
         if let hit = cache[key] { return hit }
         let tokens = ArabicText.tokens(text)
-        var found = type == .expense ? "arrow.up.right" : "arrow.down.left"
-        outer: for (symbol, words) in groups {
+        var found: LucideIcon = type == .expense ? .arrowUpRight : .arrowDownLeft
+        outer: for (icon, words) in groups {
             for t in tokens where ArabicText.stems(t).contains(where: { words.contains($0) }) {
-                found = symbol
+                found = icon
                 break outer
             }
         }

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 extension Color {
     init(hex: UInt32, opacity: Double = 1) {
@@ -12,15 +13,31 @@ extension Color {
     }
 }
 
-/// Colours from the reference screens.
+/// The Android build's design tokens (src/styles/tokens.css).
 enum Palette {
-    static let navy = Color(hex: 0x071A4A)
-    static let blue = Color(hex: 0x1D56B0)
-    static let page = Color(hex: 0xF4F5F7)
-    static let tile = Color(hex: 0xF4F4F6)
-    static let ink = Color(hex: 0x0B0B0C)
-    static let muted = Color(hex: 0x9B9CA1)
+    static let navy800 = Color(hex: 0x071A4A)
+    static let blue600 = Color(hex: 0x1D56B0)
+    static let teal400 = Color(hex: 0x3CC6D4)
 
+    static let page = Color(hex: 0xF4F5F7)
+    static let sheet = Color.white
+    static let pill = Color(hex: 0xEBECEE)
+    static let tile = Color(hex: 0xF4F4F6)
+    static let iconBg = Color(hex: 0xEEEFF1)
+    static let ink = Color(hex: 0x0B0B0C)
+    static let ink2 = Color(hex: 0x2A2B2E)
+    static let muted = Color(hex: 0x9B9CA1)
+    static let muted2 = Color(hex: 0xB9BABE)
+    static let danger = Color(hex: 0xD63C3C)
+    static let iconInk = Color(hex: 0x6C6D72)
+    static let rowIconInk = Color(hex: 0x55565B)
+    static let tileIcon = Color(hex: 0x8D8E93)
+    static let tabInk = Color(hex: 0x1C1D20)
+    static let divider = Color(hex: 0xE7E8EB)
+    static let grabber = Color(hex: 0xD9DADD)
+    static let backdrop = Color(hex: 0x050F33, opacity: 0.45)
+
+    /// Home hero
     static let hero = LinearGradient(
         stops: [
             .init(color: Color(hex: 0x061541), location: 0),
@@ -32,6 +49,7 @@ enum Palette {
         startPoint: .top, endPoint: .bottom
     )
 
+    /// Full-screen gradient (Transactions, Stats, Voice, Settings, Welcome, Splash)
     static let screen = LinearGradient(
         stops: [
             .init(color: Color(hex: 0x061541), location: 0),
@@ -43,82 +61,162 @@ enum Palette {
     )
 }
 
-// MARK: - Liquid Glass
+/// Same easing the Android build uses everywhere (cubic-bezier(.22, 1, .36, 1)).
+extension Animation {
+    static func easeOutApp(_ duration: Double) -> Animation {
+        .timingCurve(0.22, 1, 0.36, 1, duration: duration)
+    }
 
-@available(iOS 26.0, *)
-private func makeGlass(tint: Color?, interactive: Bool, clear: Bool) -> Glass {
-    var glass: Glass = clear ? .clear : .regular
-    if let tint { glass = glass.tint(tint) }
-    if interactive { glass = glass.interactive() }
-    return glass
+    /// Framer Motion spring with the given stiffness/damping (mass 1).
+    static func framer(_ stiffness: Double, _ damping: Double) -> Animation {
+        .interpolatingSpring(mass: 1, stiffness: stiffness, damping: damping)
+    }
+}
+
+// MARK: - Fonts (the APK's Inter + IBM Plex Sans Arabic, bundled)
+
+enum AppFont {
+    private static func interName(_ w: Font.Weight) -> String {
+        if w == .heavy || w == .black { return "Inter-ExtraBold" }
+        if w == .bold { return "Inter-Bold" }
+        if w == .semibold { return "Inter-SemiBold" }
+        if w == .medium { return "Inter-Medium" }
+        return "Inter-Regular"
+    }
+
+    private static func plexName(_ w: Font.Weight) -> String {
+        if w == .bold || w == .heavy || w == .black { return "IBMPlexSansArabic-Bold" }
+        if w == .semibold { return "IBMPlexSansArabic-SemiBold" }
+        if w == .medium { return "IBMPlexSansArabic-Medium" }
+        return "IBMPlexSansArabic-Regular"
+    }
+
+    /// Text font: IBM Plex Sans Arabic in Arabic, Inter in English (like the CSS).
+    static func ui(_ size: CGFloat, _ weight: Font.Weight, _ lang: Lang) -> Font {
+        .custom(lang == .ar ? plexName(weight) : interName(weight), fixedSize: size)
+    }
+
+    /// Numbers always use Inter.
+    static func num(_ size: CGFloat, _ weight: Font.Weight) -> Font {
+        .custom(interName(weight), fixedSize: size)
+    }
+}
+
+private struct LangKey: EnvironmentKey {
+    static let defaultValue: Lang = .ar
+}
+
+/// Screen size and the system bars' insets, read once from the window.
+struct Metrics: Equatable {
+    var width: CGFloat = 393
+    var height: CGFloat = 852
+    var safeTop: CGFloat = 59
+    var safeBottom: CGFloat = 34
+
+    /// var(--safe-top) / var(--safe-bottom) from the Android CSS
+    var top: CGFloat { max(safeTop, 28) }
+    var bottom: CGFloat { max(safeBottom, 12) }
+
+    static func current() -> Metrics {
+        let window = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first { $0.isKeyWindow } ?? UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }.first?.windows.first
+        guard let window else { return Metrics() }
+        return Metrics(width: window.bounds.width, height: window.bounds.height,
+                       safeTop: window.safeAreaInsets.top, safeBottom: window.safeAreaInsets.bottom)
+    }
+}
+
+private struct MetricsKey: EnvironmentKey {
+    static let defaultValue = Metrics()
+}
+
+extension EnvironmentValues {
+    var appLang: Lang {
+        get { self[LangKey.self] }
+        set { self[LangKey.self] = newValue }
+    }
+
+    var metrics: Metrics {
+        get { self[MetricsKey.self] }
+        set { self[MetricsKey.self] = newValue }
+    }
+}
+
+private struct UIFontModifier: ViewModifier {
+    @Environment(\.appLang) private var lang
+    let size: CGFloat
+    let weight: Font.Weight
+
+    func body(content: Content) -> some View {
+        content.font(AppFont.ui(size, weight, lang))
+    }
 }
 
 extension View {
-    /// Apple's Liquid Glass (iOS 26) in `shape`; Apple's frosted material before that.
-    @ViewBuilder
-    func liquidGlass<S: Shape>(_ shape: S, tint: Color? = nil, interactive: Bool = false, clear: Bool = false) -> some View {
-        if #available(iOS 26.0, *) {
-            self.glassEffect(makeGlass(tint: tint, interactive: interactive, clear: clear), in: shape)
-        } else {
-            self.background(clear ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(.regularMaterial), in: shape)
-        }
+    /// The app's text font at a fixed point size (no Dynamic Type, like the APK).
+    func ui(_ size: CGFloat, _ weight: Font.Weight = .regular) -> some View {
+        modifier(UIFontModifier(size: size, weight: weight))
     }
+}
 
-    /// Morph identity for glass inside a `GlassGroup` (iOS 26).
+// MARK: - Liquid Glass
+
+@available(iOS 26.0, *)
+private func glass(_ base: Glass, tint: Color?, interactive: Bool) -> Glass {
+    var g = base
+    if let tint { g = g.tint(tint) }
+    if interactive { g = g.interactive() }
+    return g
+}
+
+extension View {
+    /// The APK's `.glass` (translucent white on the navy gradient) as Apple's
+    /// clear Liquid Glass on iOS 26; the APK's own look before that.
     @ViewBuilder
-    func glassID<ID: Hashable & Sendable>(_ id: ID, in namespace: Namespace.ID) -> some View {
+    func darkGlass<S: Shape>(_ shape: S, fill: Double = 0.14, interactive: Bool = false) -> some View {
         if #available(iOS 26.0, *) {
-            self.glassEffectID(id, in: namespace)
+            self.glassEffect(glass(.clear, tint: .white.opacity(fill * 0.5), interactive: interactive), in: shape)
         } else {
             self
+                .background(shape.fill(.white.opacity(fill)))
+                .overlay(shape.stroke(.white.opacity(0.26), lineWidth: 1))
         }
     }
 
-    /// Several glass views that should read as one shape at rest (iOS 26).
+    /// Light frosted glass (the floating tab bar).
     @ViewBuilder
-    func glassUnion<ID: Hashable & Sendable>(_ id: ID, in namespace: Namespace.ID) -> some View {
+    func barGlass<S: Shape>(_ shape: S) -> some View {
         if #available(iOS 26.0, *) {
-            self.glassEffectUnion(id: id, namespace: namespace)
+            self.glassEffect(glass(.regular, tint: nil, interactive: true), in: shape)
         } else {
             self
+                .background(shape.fill(Color(hex: 0xF0F1F4, opacity: 0.72)))
+                .background(.ultraThinMaterial, in: shape)
+                .overlay(shape.stroke(.white.opacity(0.8), lineWidth: 1))
+                .shadow(color: Color(hex: 0x071A4A, opacity: 0.12), radius: 15, y: 10)
         }
     }
 
-    /// Apple's glass button style (iOS 26); bordered before that.
+    /// A solid APK pill (grey or black) that presses like Liquid Glass on iOS 26.
     @ViewBuilder
-    func glassButton(prominent: Bool = false) -> some View {
+    func pillGlass<S: Shape>(_ shape: S, color: Color) -> some View {
         if #available(iOS 26.0, *) {
-            if prominent { self.buttonStyle(.glassProminent) } else { self.buttonStyle(.glass) }
-        } else {
-            if prominent { self.buttonStyle(.borderedProminent) } else { self.buttonStyle(.bordered) }
-        }
-    }
-
-    /// Tab bar shrinks while scrolling down and expands when scrolling up (iOS 26).
-    @ViewBuilder
-    func minimizeTabBarOnScroll() -> some View {
-        if #available(iOS 26.0, *) {
-            self.tabBarMinimizeBehavior(.onScrollDown)
-        } else {
             self
-        }
-    }
-
-    /// Soft scroll-edge effect under bars (iOS 26).
-    @ViewBuilder
-    func softScrollEdges() -> some View {
-        if #available(iOS 26.0, *) {
-            self.scrollEdgeEffectStyle(.soft, for: .all)
+                .background(shape.fill(color))
+                .glassEffect(glass(.regular, tint: color, interactive: true), in: shape)
         } else {
-            self
+            self.background(shape.fill(color))
         }
     }
 }
 
-/// Glass views placed together blend and morph into each other (Apple's
-/// GlassEffectContainer, the "blend group"). Plain container before iOS 26.
+/// Glass views placed together are drawn in one pass (GlassEffectContainer);
+/// `spacing: 0` keeps neighbours as separate shapes like the APK.
 struct GlassGroup<Content: View>: View {
-    var spacing: CGFloat = 20
+    var spacing: CGFloat = 0
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -130,65 +228,33 @@ struct GlassGroup<Content: View>: View {
     }
 }
 
-// MARK: - Money
+// MARK: - Press feedback (Framer's whileTap scale)
 
-/// Amount with a muted fraction ("12,680" + ".42") that rolls digit by digit
-/// when it changes (numeric content transition).
-struct MoneyText: View {
-    @Environment(AppStore.self) private var store
-    let value: Double
-    var signed = false
-    var size: CGFloat = 17
-    var weight: Font.Weight = .medium
-    var color: Color = Palette.ink
-    var fracColor: Color = Palette.muted
-    var symbolColor: Color = Palette.muted
+struct PressStyle: ButtonStyle {
+    var scale: CGFloat = 0.96
 
-    var body: some View {
-        let p = Currency.parts(value, store.settings.currency, rate: store.settings.usdRate,
-                               lang: store.settings.lang, signed: signed)
-        let font = Font.system(size: size, weight: weight)
-        let symFont = Font.system(size: max(11, size * 0.42), weight: .medium)
-        // keep "-1,234.50" left-to-right inside Arabic text (LRI … PDI)
-        let number = Text("\u{2066}\(p.sign)\(p.symbolFirst ? p.symbol : "")\(p.int)").font(font).foregroundStyle(color)
-            + Text(p.frac).font(font).foregroundStyle(fracColor)
-            + Text("\u{2069}")
-        let symbol = p.symbolFirst ? Text("") : Text(" \(p.symbol)").font(symFont).foregroundStyle(symbolColor)
-        return (number + symbol)
-            .monospacedDigit()
-            .lineLimit(1)
-            .minimumScaleFactor(0.5)
-            .contentTransition(.numericText(value: value))
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? scale : 1)
+            .animation(.framer(500, 30), value: configuration.isPressed)
     }
 }
 
-// MARK: - Avatar
-
-struct AvatarView: View {
-    @Environment(AppStore.self) private var store
-    var size: CGFloat = 36
-
-    var body: some View {
-        Group {
-            if let data = store.profile.photo, let image = UIImage(data: data) {
-                Image(uiImage: image).resizable().scaledToFill()
-            } else {
-                let initial = store.profile.name.trimmingCharacters(in: .whitespaces).first.map { String($0).uppercased() } ?? "م"
-                ZStack {
-                    LinearGradient(colors: [Color(hex: 0x3CC6D4), Palette.blue], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    Text(initial).font(.system(size: size * 0.42, weight: .semibold)).foregroundStyle(.white)
-                }
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(Circle())
-    }
-}
-
-// MARK: - Haptics
+// MARK: - Haptics (Capacitor Haptics impact light / medium)
 
 enum Haptic {
-    static func tap() { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
-    static func success() { UINotificationFeedbackGenerator().notificationOccurred(.success) }
-    static func select() { UISelectionFeedbackGenerator().selectionChanged() }
+    private static let light: UIImpactFeedbackGenerator = {
+        let g = UIImpactFeedbackGenerator(style: .light)
+        g.prepare()
+        return g
+    }()
+
+    private static let mediumGen: UIImpactFeedbackGenerator = {
+        let g = UIImpactFeedbackGenerator(style: .medium)
+        g.prepare()
+        return g
+    }()
+
+    static func tap() { light.impactOccurred() }
+    static func medium() { mediumGen.impactOccurred() }
 }

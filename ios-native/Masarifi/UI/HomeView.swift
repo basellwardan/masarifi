@@ -2,283 +2,310 @@ import SwiftUI
 
 struct HomeView: View {
     @Environment(AppStore.self) private var store
+    @Environment(\.metrics) private var metrics
     @State private var spins = 0
-    @Namespace private var glass
 
     var body: some View {
         let t = store.t
         let monthTxs = store.txs(in: store.viewMonth)
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 0) {
-                    hero(t)
-                    actions(t)
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(t.recent).font(.system(size: 22, weight: .semibold))
-                        Spacer()
-                        Button(t.viewAll) { store.tab = .tx }
-                            .foregroundStyle(Palette.muted)
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 26)
-                    .padding(.bottom, 8)
+        // clamp(340px, 53dvh, 470px)
+        let heroHeight = min(max(340, metrics.height * 0.53), 470)
 
+        ZStack(alignment: .bottom) {
+            VStack(spacing: 0) {
+                hero(t, height: heroHeight)
+                actions(t).modifier(Rise(index: 4))
+                HStack(alignment: .firstTextBaseline) {
+                    Text(t.recent)
+                        .ui(22, .semibold)
+                        .tracking(-0.22)
+                        .foregroundStyle(Palette.ink)
+                    Spacer()
+                    Button(t.viewAll) { store.setTab(.tx) }
+                        .buttonStyle(.plain)
+                        .ui(16)
+                        .foregroundStyle(Palette.muted)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 24)
+                .padding(.bottom, 12)
+                .modifier(Rise(index: 5))
+
+                ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(monthTxs.prefix(15)) { tx in
-                            TxRowView(tx: tx)
-                                .padding(.horizontal, 20)
-                                .contentShape(Rectangle())
-                                .onTapGesture { store.sheet = .add(tx.type, editID: tx.id, prefill: nil) }
-                                .contextMenu {
-                                    Button(t.edit, systemImage: "pencil") { store.sheet = .add(tx.type, editID: tx.id, prefill: nil) }
-                                    Button(t.delete, systemImage: "trash", role: .destructive) {
-                                        withAnimation { store.deleteTx(tx.id) }
-                                    }
-                                }
-                                .transition(.asymmetric(insertion: .move(edge: .top).combined(with: .opacity), removal: .opacity))
+                        ForEach(monthTxs.prefix(12)) { tx in
+                            TxRow(tx: tx) { store.openSheet(.add(tx.type, editID: tx.id, prefill: nil)) }
+                                .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: 10)), removal: .opacity))
                         }
                         if monthTxs.isEmpty {
-                            VStack(spacing: 6) {
-                                Text(t.noTx).font(.headline)
-                                Text(t.noTxHint).font(.subheadline).foregroundStyle(Palette.muted)
-                            }
-                            .padding(.vertical, 30)
+                            EmptyList(t: t).modifier(Rise(index: 6))
                         }
                     }
-                    .padding(.bottom, 40)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 110)
                 }
+                .scrollIndicators(.hidden)
             }
-            .background(Palette.page)
-            .ignoresSafeArea(edges: .top)
-            .softScrollEdges()
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { store.tab = .settings } label: { AvatarView(size: 34) }
-                        .accessibilityLabel(t.profile)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { store.sheet = .notifications } label: {
-                        Image(systemName: store.monthChangePct < 0 ? "bell.badge" : "bell")
-                    }
-                    .accessibilityLabel(t.notifications)
-                }
-            }
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
+            ListFade(color: Palette.page)
         }
+        .background(Palette.page)
     }
 
-    private func hero(_ t: Strings) -> some View {
+    // MARK: hero
+
+    private func hero(_ t: Strings, height: CGFloat) -> some View {
         let pct = store.monthChangePct
-        return ZStack(alignment: .bottom) {
+        let w = metrics.width
+        return ZStack(alignment: .top) {
             Palette.hero
-            RadialGradient(colors: [Color(hex: 0x8CBEFF, opacity: 0.55), .clear], center: .bottom, startRadius: 10, endRadius: 260)
-            VStack(spacing: 10) {
-                Text(t.balance)
-                    .font(.system(size: 17))
-                    .foregroundStyle(.white.opacity(0.78))
-                MoneyText(value: store.balance, size: 54, weight: .semibold, color: .white,
-                          fracColor: .white.opacity(0.48), symbolColor: .white.opacity(0.7))
-                    .padding(.horizontal, 20)
-                HStack(spacing: 6) {
-                    Image(systemName: pct >= 0 ? "chart.line.uptrend.xyaxis" : "chart.line.downtrend.xyaxis")
-                    Text(String(format: "%.2f%%", abs(pct))).monospacedDigit()
-                    Text(t.thisMonth)
+
+            // soft light rising from the bottom edge (.hero::after)
+            EllipticalGradient(colors: [Color(hex: 0x8CBEFF, opacity: 0.55), Color(hex: 0x8CBEFF, opacity: 0)],
+                               center: .center, startRadiusFraction: 0, endRadiusFraction: 0.5)
+                .frame(width: 1.103 * w, height: 0.772 * height)
+                .position(x: w / 2, y: 1.02 * height)
+
+            VStack(spacing: 0) {
+                HStack {
+                    Button { store.setTab(.settings) } label: { AvatarView(size: 46) }
+                        .buttonStyle(PressStyle(scale: 0.92))
+                        .accessibilityLabel(t.profile)
+                    Spacer()
+                    GlassCircleButton(icon: .bell, label: t.notifications, badge: pct < 0) {
+                        store.openSheet(.notifications)
+                    }
                 }
-                .font(.system(size: 13.5, weight: .medium))
-                .foregroundStyle(.white.opacity(0.9))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .liquidGlass(Capsule(), clear: true)
+                .padding(.horizontal, 20)
+                .padding(.top, metrics.top + 10)
+                .modifier(Rise(index: 0))
+
+                VStack(spacing: 0) {
+                    Text(t.balance)
+                        .ui(17)
+                        .foregroundStyle(.white.opacity(0.78))
+                        .modifier(Rise(index: 1))
+                    MoneyView(value: store.balance, style: .balance(min(max(42, w * 0.13), 56)), countUp: true)
+                        .padding(.top, 6)
+                        .modifier(Rise(index: 2))
+                    GlassChip {
+                        Icon(pct >= 0 ? .trendingUp : .trendingDown, size: 14, stroke: 1.8)
+                        Text(String(format: "%.2f%%", abs(pct)))
+                            .font(AppFont.num(13.5, .regular))
+                            .tracking(-0.27)
+                            .environment(\.layoutDirection, .leftToRight)
+                        Text(t.thisMonth)
+                    }
+                    .padding(.top, 12)
+                    .modifier(Rise(index: 3))
+                }
+                .padding(.top, min(max(8, metrics.height * 0.025), 28))
                 Spacer(minLength: 0)
             }
-            .padding(.top, 118)
 
             CardStack()
                 .frame(height: 150)
+                .frame(maxHeight: .infinity, alignment: .bottom)
         }
-        .frame(height: 470)
-        .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 40, bottomTrailingRadius: 40, style: .continuous))
+        .frame(height: height)
+        .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 40, bottomTrailingRadius: 40, style: .circular))
     }
 
-    private func actions(_ t: Strings) -> some View {
-        // one blend group: the three glass buttons sit close enough to read as
-        // a single bar and morph into each other when pressed
-        GlassGroup(spacing: 14) {
-            HStack(spacing: 8) {
-                Button {
-                    Haptic.tap()
-                    store.sheet = .add(.expense, editID: nil, prefill: nil)
-                } label: {
-                    Label(t.withdraw, systemImage: "arrow.up.right")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .glassButton()
-                .glassID("withdraw", in: glass)
+    // MARK: withdraw · swap · deposit
 
-                Button {
+    private func actions(_ t: Strings) -> some View {
+        GlassGroup {
+            HStack(spacing: 8) {
+                PillButton {
+                    Haptic.tap()
+                    store.openSheet(.add(.expense, editID: nil, prefill: nil))
+                } label: {
+                    Icon(.arrowUpRight, size: 20, stroke: 1.7)
+                    Text(t.withdraw)
+                }
+                PillButton(width: 52) {
                     Haptic.tap()
                     spins += 1
-                    withAnimation(.snappy) { store.cycleCurrency() }
+                    store.cycleCurrency()
                 } label: {
-                    Image(systemName: "arrow.up.arrow.down")
-                        .font(.system(size: 17, weight: .semibold))
+                    Icon(.arrowUpDown, size: 20, stroke: 1.7)
                         .rotationEffect(.degrees(Double(spins) * 180))
-                        .animation(.spring(response: 0.45, dampingFraction: 0.6), value: spins)
-                        .frame(width: 32, height: 44)
+                        .animation(.framer(320, 22), value: spins)
                 }
-                .glassButton()
-                .glassID("swap", in: glass)
-                .accessibilityLabel(t.swap)
-
-                Button {
+                .accessibilityLabel(t.currency)
+                PillButton {
                     Haptic.tap()
-                    store.sheet = .add(.income, editID: nil, prefill: nil)
+                    store.openSheet(.add(.income, editID: nil, prefill: nil))
                 } label: {
-                    Label(t.deposit, systemImage: "arrow.down.right")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(maxWidth: .infinity, minHeight: 44)
+                    Icon(.arrowDownRight, size: 20, stroke: 1.7)
+                    Text(t.deposit)
                 }
-                .glassButton()
-                .glassID("deposit", in: glass)
             }
-            .tint(Palette.ink)
-            .controlSize(.large)
         }
         .padding(.horizontal, 16)
         .padding(.top, 16)
     }
 }
 
-/// The stack of glass cards in the hero. The front card shows a month's
-/// spending; swipe it to flick through months, tap it for Statistics.
+struct EmptyList: View {
+    let t: Strings
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Text(t.noTx).ui(16, .semibold).foregroundStyle(Palette.ink2)
+            Text(t.noTxHint).ui(16).foregroundStyle(Palette.muted)
+        }
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 28)
+        .padding(.horizontal, 24)
+    }
+}
+
+/// The glass card stack in the hero. The front card shows one month's
+/// spending; swipe it sideways to flick through months (it flies off and the
+/// next one rises from behind). Tapping it opens Statistics.
 struct CardStack: View {
     @Environment(AppStore.self) private var store
+    @Environment(\.metrics) private var metrics
     @State private var drag: CGFloat = 0
-    @State private var flyDirection: CGFloat = 1
-    @State private var nudge = 0
+    @State private var dragging = false
+    @State private var flyDir: CGFloat = 1
+    @State private var shake = 0
+    @State private var shown = false
 
     var body: some View {
-        let t = store.t
+        let w = metrics.width
         let key = store.viewMonth
+        ZStack(alignment: .top) {
+            backCard(width: w * 0.68, top: 30, visible: 26, opacity: 0.55, delay: 0.2)
+            backCard(width: w * 0.78, top: 41, visible: 15, opacity: 0.75, delay: 0.14)
+            ZStack {
+                front(key)
+                    .id(key)
+                    .transition(.asymmetric(
+                        insertion: .modifier(active: CardMotion(y: -14, scale: 0.9, opacity: 0),
+                                             identity: CardMotion()),
+                        removal: .modifier(active: CardMotion(x: flyDir * 340, rotation: flyDir * 14, opacity: 0),
+                                           identity: CardMotion())
+                    ))
+            }
+            .frame(width: w * 0.88, height: 140)
+            .padding(.top, 54)
+        }
+        .frame(maxWidth: .infinity)
+        .onAppear { shown = true }
+    }
+
+    private func backCard(width: CGFloat, top: CGFloat, visible: CGFloat, opacity: Double, delay: Double) -> some View {
+        // only the strip that peeks above the front card is drawn
+        let shape = RoundedRectangle(cornerRadius: 22, style: .circular)
+        return shape
+            .fill(.white.opacity(0.14))
+            .overlay(shape.stroke(.white.opacity(0.26), lineWidth: 1))
+            .frame(width: width, height: 120)
+            .frame(height: visible, alignment: .top)
+            .clipped()
+            .opacity(shown ? opacity : 0)
+            .offset(y: shown ? 0 : 60)
+            .animation(.easeOutApp(0.5).delay(delay), value: shown)
+            .padding(.top, top)
+    }
+
+    private func front(_ key: MonthKey) -> some View {
+        let t = store.t
+        let lang = store.settings.lang
         let spend = AppStore.sum(store.txs(in: key), .expense)
         let label = key.year == MonthKey.current.year
-            ? DateText.monthName(key.month, store.settings.lang, short: true)
-            : DateText.monthTitle(key, store.settings.lang)
+            ? DateText.monthName(key.month, lang, short: true)
+            : "\(DateText.monthName(key.month, lang, short: true)) \(key.year)"
 
-        GeometryReader { geo in
-            let w = geo.size.width
-            ZStack(alignment: .top) {
-                // back cards: only their top strips peek out above the front card
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(.white.opacity(0.12))
-                    .frame(width: w * 0.68, height: 26)
-                    .offset(y: 30)
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(.white.opacity(0.16))
-                    .frame(width: w * 0.78, height: 18)
-                    .offset(y: 41)
-
-                HStack(alignment: .center) {
-                    HStack(spacing: 14) {
-                        Text(t.monthSpend)
-                        MoneyText(value: spend, size: 13.5, weight: .medium, color: .white.opacity(0.9),
-                                  fracColor: .white.opacity(0.6), symbolColor: .white.opacity(0.7))
-                    }
-                    .font(.system(size: 13.5))
+        return HStack(alignment: .center, spacing: 0) {
+            HStack(spacing: 18) {
+                Text(t.monthSpend)
+                    .ui(13.5)
                     .foregroundStyle(.white.opacity(0.92))
-                    Spacer()
-                    Text(label)
-                        .font(.system(size: 16, weight: .bold))
-                        .italic(store.settings.lang == .en)
-                        .foregroundStyle(.white.opacity(0.65))
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .frame(width: w * 0.88, height: 140, alignment: .top)
-                .liquidGlass(RoundedRectangle(cornerRadius: 22, style: .continuous), tint: .white.opacity(0.06), interactive: true)
-                .offset(x: drag, y: 54)
-                .rotationEffect(.degrees(Double(drag / 22)), anchor: .bottom)
-                .modifier(Shake(amount: CGFloat(nudge)))
-                .id(key)
-                .transition(.asymmetric(
-                    insertion: .scale(scale: 0.9).combined(with: .opacity).combined(with: .offset(y: -14)),
-                    removal: .offset(x: flyDirection * 420).combined(with: .opacity)
-                ))
-                .gesture(
-                    DragGesture(minimumDistance: 12)
-                        .onChanged { drag = $0.translation.width }
-                        .onEnded { end($0) }
-                )
-                .onTapGesture { store.tab = .stats }
-                .accessibilityHint(t.swipeHint)
-            }
-            .frame(width: w)
-        }
-    }
-
-    private func end(_ value: DragGesture.Value) {
-        let dx = value.translation.width
-        let fast = abs(value.predictedEndTranslation.width) > 180
-        guard abs(dx) > 60 || fast else {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) { drag = 0 }
-            return
-        }
-        let right = (fast ? value.predictedEndTranslation.width : dx) > 0
-        // like turning pages: English swipe left for the next month, Arabic swipe right
-        let toNext = store.settings.lang == .ar ? right : !right
-        if toNext && store.viewMonth >= .current {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) { drag = 0 }
-            withAnimation(.linear(duration: 0.35)) { nudge += 1 }
-            return
-        }
-        Haptic.select()
-        flyDirection = right ? 1 : -1
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-            drag = 0
-            store.viewMonth = store.viewMonth.shifted(by: toNext ? 1 : -1)
-        }
-    }
-}
-
-/// Small "no" wiggle when there is no next month.
-struct Shake: GeometryEffect {
-    var amount: CGFloat
-    var animatableData: CGFloat {
-        get { amount }
-        set { amount = newValue }
-    }
-
-    func effectValue(size: CGSize) -> ProjectionTransform {
-        ProjectionTransform(CGAffineTransform(translationX: 8 * sin(amount * .pi * 4), y: 0))
-    }
-}
-
-struct TxRowView: View {
-    @Environment(AppStore.self) private var store
-    let tx: Tx
-
-    var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: IconHints.symbol(for: tx.note, type: tx.type))
-                .font(.system(size: 17))
-                .foregroundStyle(Color(hex: 0x6C6D72))
-                .frame(width: 44, height: 44)
-                .background(Color(hex: 0xEEEFF1), in: Circle())
-            VStack(alignment: .leading, spacing: 3) {
-                Text(store.title(of: tx))
-                    .font(.system(size: 16, weight: .medium))
-                    .lineLimit(1)
-                Text(DateText.txDate(tx.date, store.t))
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(Palette.muted)
-                    .lineLimit(1)
+                MoneyView(value: spend, style: MoneyStyle(size: 13.5, weight: .regular, color: .white.opacity(0.92), symSize: 12))
+                    .opacity(0.85)
             }
             Spacer(minLength: 8)
-            MoneyText(value: tx.type == .expense ? -tx.amount : tx.amount, size: 16, weight: .medium,
-                      fracColor: Palette.ink, symbolColor: Palette.muted)
+            Text(label)
+                .font(AppFont.ui(16, lang == .en ? .heavy : .bold, lang))
+                .foregroundStyle(.white.opacity(0.6))
+                .lineLimit(1)
+                .transformEffect(lang == .en ? CGAffineTransform(a: 1, b: 0, c: -0.2, d: 1, tx: 3, ty: 0) : .identity)
         }
-        .padding(.vertical, 10)
+        .frame(height: 24)
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .keyframeAnimator(initialValue: CGFloat(0), trigger: shake) { content, x in
+            content.offset(x: x)
+        } keyframes: { _ in
+            LinearKeyframe(-8, duration: 0.0875)
+            LinearKeyframe(7, duration: 0.0875)
+            LinearKeyframe(-4, duration: 0.0875)
+            LinearKeyframe(0, duration: 0.0875)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 22))
+        .darkGlass(RoundedRectangle(cornerRadius: 22, style: .circular), fill: 0.18, interactive: true)
+        .scaleEffect(dragging ? 1.02 : 1)
+        .offset(x: drag)
+        .onTapGesture { store.setTab(.stats) }
+        .gesture(
+            DragGesture(minimumDistance: 8)
+                .onChanged { v in
+                    dragging = true
+                    drag = v.translation.width * 0.7
+                }
+                .onEnded(end)
+        )
+        .animation(.framer(400, 30), value: dragging)
+        .accessibilityHint(t.swipeHint)
+    }
+
+    private func end(_ v: DragGesture.Value) {
+        dragging = false
+        let dx = v.translation.width
+        let vx = v.velocity.width
+        let fast = abs(vx) > 450
+        guard abs(dx) >= 60 || fast else {
+            withAnimation(.framer(500, 35)) { drag = 0 }
+            return
+        }
+        let right = (fast ? vx : dx) > 0
+        // like turning pages: English swipe left for the next month, Arabic (RTL) swipe right
+        let toNext = store.settings.lang == .ar ? right : !right
+        if toNext && store.viewMonth >= .current {
+            withAnimation(.framer(500, 35)) { drag = 0 }
+            shake += 1 // no future months: small "nope" wiggle
+            return
+        }
+        Haptic.tap()
+        flyDir = right ? 1 : -1
+        let next = store.viewMonth.shifted(by: toNext ? 1 : -1)
+        // let the new fly direction reach the outgoing card before it leaves
+        DispatchQueue.main.async {
+            withAnimation(.framer(300, 30)) {
+                drag = 0
+                store.viewMonth = next
+            }
+        }
+    }
+}
+
+/// Position / tilt / fade used by the month card's enter and exit.
+struct CardMotion: ViewModifier {
+    var x: CGFloat = 0
+    var y: CGFloat = 0
+    var scale: CGFloat = 1
+    var rotation: Double = 0
+    var opacity: Double = 1
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(scale)
+            .rotationEffect(.degrees(rotation))
+            .offset(x: x, y: y)
+            .opacity(opacity)
     }
 }
