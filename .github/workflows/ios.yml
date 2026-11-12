@@ -72,14 +72,15 @@ jobs:
           shot 1-home -uiDemo -uiTab 0
           shot 2-transactions -uiDemo -uiTab 1
           shot 3-stats -uiDemo -uiTab 2
-          shot 4-voice -uiDemo -uiTab 3
-          shot 5-settings -uiDemo -uiTab 4
-          shot 6-add -uiDemo -uiTab 0 -uiSheet add
-          shot 7-month -uiDemo -uiTab 2 -uiSheet month
-          shot 8-notifications -uiDemo -uiTab 0 -uiSheet notifications
-          shot 9-welcome -uiWelcome
-          shot 10-home-en -uiDemo -uiTab 0 -uiLang en
-          shot 11-stats-en -uiDemo -uiTab 2 -uiLang en
+          shot 4-settings -uiDemo -uiTab 3
+          shot 5-search -uiDemo -uiTab 4
+          shot 6-voice -uiDemo -uiTab 0 -uiSheet voice
+          shot 7-add -uiDemo -uiTab 0 -uiSheet add
+          shot 8-month -uiDemo -uiTab 2 -uiSheet month
+          shot 9-notifications -uiDemo -uiTab 0 -uiSheet notifications
+          shot 10-welcome -uiWelcome
+          shot 11-home-en -uiDemo -uiTab 0 -uiLang en
+          shot 12-stats-en -uiDemo -uiTab 2 -uiLang en
 
       - uses: actions/upload-artifact@v4
         if: always()

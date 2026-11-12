@@ -4,12 +4,12 @@ name: Masarifi
 options:
   bundleIdPrefix: com.masarifi
   deploymentTarget:
-    iOS: "18.0"
+    iOS: "26.0"
   developmentLanguage: ar
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "3.0"
+    MARKETING_VERSION: "4.0"
     CURRENT_PROJECT_VERSION: "1"
     TARGETED_DEVICE_FAMILY: "1"
     CODE_SIGN_STYLE: Manual
@@ -43,20 +43,6 @@ targets:
           UIImageName: LaunchLogo
           UIImageRespectsSafeAreaInsets: true
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
-        # light status bar on the navy screens, like the Android build
-        UIStatusBarStyle: UIStatusBarStyleLightContent
-        UIViewControllerBasedStatusBarAppearance: false
-        # the Android build's fonts (tools/ios-fonts.py)
-        UIAppFonts:
-          - Inter-400.ttf
-          - Inter-500.ttf
-          - Inter-600.ttf
-          - Inter-700.ttf
-          - Inter-800.ttf
-          - IBMPlexSansArabic-400.ttf
-          - IBMPlexSansArabic-500.ttf
-          - IBMPlexSansArabic-600.ttf
-          - IBMPlexSansArabic-700.ttf
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         NSMicrophoneUsageDescription: مصاريفي يستخدم المايك لتسجيل مصاريفك بصوتك. My Expenses uses the microphone so you can add expenses by voice.

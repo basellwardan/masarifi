@@ -33,12 +33,14 @@ Icons and splash images come from the logo. Run `node tools/android-res.mjs` aga
 - `src/styles/tokens.css` holds the colours, glass and radii taken from the reference screens.
 
 ## iPhone (native SwiftUI, Liquid Glass)
-The iPhone app in `ios-native/` is a separate native SwiftUI app with no web view. Its screens are drawn to match the Android build: the same layout, colours (`src/styles/tokens.css` → `UI/Theme.swift`), fonts and icons, plus Apple's real Liquid Glass.
-- Fonts are the APK's Inter and IBM Plex Sans Arabic. `python tools/ios-fonts.py` rebuilds them into `ios-native/Masarifi/Fonts/` from `node_modules/@fontsource` and needs `pip install fonttools`.
-- Icons are the same Lucide outlines, drawn as native vector paths. `node tools/ios-icons.mjs` regenerates `UI/LucideData.swift`; add new icons to its list.
-- Liquid Glass (iOS 26 `glassEffect`) covers the floating tab bar, the glass circle buttons, the chips, the month card, the statistics bubbles, the mic bubble and the logo tile. The grey and black pills keep the APK's colours and press like glass. On iOS 18–25 these fall back to the APK's own translucent look.
+The iPhone app in `ios-native/` is a separate native SwiftUI app with no web view, built to feel like Apple's own apps on iOS 26. It needs iOS 26 or later.
+- **Tab bar:** the system Liquid Glass `TabView` minimizes while scrolling (`tabBarMinimizeBehavior`). Search sits on its own at the trailing end (`Tab(role: .search)`). A Music-style bar above it (`tabViewBottomAccessory`) adds an expense by voice or by hand.
+- **Glass:** toolbar buttons get system glass, with soft scroll-edge blur under the bars. Custom glass is grouped in `GlassEffectContainer` blend groups that morph with `glassEffectID`: the Home action buttons, the month card, the statistics bubbles, the mic and the month picker. Buttons use `.glass` / `.glassProminent`.
+- **Sheets:** add/edit, month, notifications and voice zoom out of the button or row that opened them (`matchedTransitionSource` + `navigationTransition(.zoom)`).
+- **Lists:** native lists with swipe actions, context menus and an Undo toast. Settings is a grouped `Form` with Settings-app icons.
+- **Text and icons:** SF Pro / SF Arabic with Dynamic Type, SF Rounded for amounts with rolling digits, and SF Symbols with symbol effects. The navy gradients and brand colours come from the Android build.
 - Same features and wording as the Android app. `ios-native/Masarifi/Model/VoiceParser.swift` is a port of `src/lib/voiceParser.ts`, so keep the two in step. `MasarifiTests` repeats the TypeScript parser cases.
 - On first launch it imports what the earlier web-based iPhone build saved (`CapacitorStorage.masarifi-v1`).
 - There's no Mac here. GitHub Actions (`.github/workflows/ios.yml`) generates the Xcode project with XcodeGen (`ios-native/project.yml`) and runs the tests on a simulator with Xcode 26. It then screenshots every screen in the simulator (the `screenshots` artifact) and uploads an unsigned `masarifi.ipa`. Install it with Sideloadly.
-- Debug builds accept `-uiDemo`, `-uiTab 0…4`, `-uiSheet add|month|notifications`, `-uiLang en` and `-uiWelcome` as launch arguments, which CI uses for the screenshots.
+- Debug builds accept `-uiDemo`, `-uiTab 0…4`, `-uiSheet add|month|notifications|voice`, `-uiLang en` and `-uiWelcome` as launch arguments, which CI uses for the screenshots.
 - To regenerate the icon and launch assets: `node tools/native-ios-assets.mjs`.

@@ -1,230 +1,191 @@
 import PhotosUI
 import SwiftUI
 
-/// First run: logo, name and photo, starting balance, done. Same steps and
-/// layout as the Android welcome.
+/// First run, in the style of Apple's welcome screens: what the app does,
+/// then your name and photo, then how much you have now.
 struct WelcomeView: View {
     @Environment(AppStore.self) private var store
-    @Environment(\.metrics) private var metrics
     @State private var step = 0
-    @State private var dir: CGFloat = 1
     @State private var name = ""
     @State private var balance = ""
     @State private var photo: Data?
-    @State private var picking = false
     @State private var picked: PhotosPickerItem?
     @State private var appeared = false
-    @State private var checkIn = false
+    @FocusState private var focused: Bool
+    @Namespace private var glass
 
     var body: some View {
         let t = store.t
         let lang = store.settings.lang
-        VStack(spacing: 0) {
-            HStack {
-                Spacer()
-                Button {
-                    store.settings.lang = lang == .ar ? .en : .ar
-                } label: {
-                    Text(lang == .ar ? "English" : "العربية")
-                        .ui(13.5)
-                        .foregroundStyle(.white.opacity(0.85))
-                        .padding(.horizontal, 16)
-                        .frame(height: 40)
-                        .contentShape(Capsule())
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 0) {
+                    LogoMark(size: step == 0 ? 84 : 60, animated: true)
+                        .padding(step == 0 ? 24 : 16)
+                        .glassEffect(.clear, in: .rect(cornerRadius: step == 0 ? 36 : 26, style: .continuous))
+                        .padding(.top, step == 0 ? 36 : 16)
+                    Text(step == 0 ? t.appName : step == 1 ? t.yourName : t.startingBalance)
+                        .font(.largeTitle.weight(.bold))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 20)
+                        .contentTransition(.opacity)
+                    if step == 2 {
+                        Text(t.startingHint).font(.body).foregroundStyle(.white.opacity(0.7)).padding(.top, 6)
+                    }
+
+                    Group {
+                        switch step {
+                        case 0: features(t)
+                        case 1: nameStep(t)
+                        default: balanceStep(lang)
+                        }
+                    }
+                    .padding(.top, 32)
+                    .id(step)
+                    .transition(.asymmetric(insertion: .move(edge: lang == .ar ? .leading : .trailing).combined(with: .opacity),
+                                            removal: .move(edge: lang == .ar ? .trailing : .leading).combined(with: .opacity)))
                 }
-                .buttonStyle(PressStyle(scale: 0.94))
-                .darkGlass(Capsule(), interactive: true)
+                .padding(.horizontal, 28)
                 .opacity(appeared ? 1 : 0)
-                .animation(.easeOut(duration: 0.3).delay(0.4), value: appeared)
+                .offset(y: appeared ? 0 : 20)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, metrics.top + 10)
-
-            VStack(spacing: 0) {
-                LogoMark(size: 92, animated: true)
-                    .frame(width: 132, height: 132)
-                    .darkGlass(RoundedRectangle(cornerRadius: 40, style: .continuous))
-                    .scaleEffect(appeared ? (step == 0 ? 1 : 0.72) : 0.7)
-                    .rotationEffect(.degrees(appeared ? 0 : -8))
-                    .opacity(appeared ? 1 : 0)
-                    .animation(.framer(150, 16), value: appeared)
-                    .animation(.framer(150, 16), value: step)
-                Text(t.appName)
-                    .ui(40, .bold)
-                    .tracking(-0.8)
-                    .foregroundStyle(.white)
-                    .padding(.top, 22)
-                    .padding(.bottom, 10)
-                    .modifier(Rise(index: 0, distance: 14, delay: 0.25))
-                Text(t.tagline)
-                    .ui(15.5)
-                    .lineSpacing(15.5 * 0.6 - 4)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.white.opacity(0.72))
-                    .frame(maxWidth: 300)
-                    .modifier(Rise(index: 0, distance: 14, delay: 0.38))
+            .scrollBounceBehavior(.basedOnSize)
+            .scrollDismissesKeyboard(.interactively)
+            .background(Palette.screen.ignoresSafeArea())
+            .safeAreaBar(edge: .bottom) {
+                GlassEffectContainer(spacing: 12) {
+                    HStack(spacing: 12) {
+                        if step > 0 {
+                            Button { go(step - 1) } label: {
+                                Image(systemName: lang == .ar ? "chevron.right" : "chevron.left")
+                                    .font(.headline)
+                                    .frame(width: 30)
+                            }
+                            .buttonStyle(.glass)
+                            .glassEffectID("back", in: glass)
+                            .accessibilityLabel(t.back)
+                        }
+                        Button { step < 2 ? go(step + 1) : finish() } label: {
+                            Text(step == 0 ? t.continueTitle : step == 2 ? t.letsGo : t.next)
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.glassProminent)
+                        .glassEffectID("next", in: glass)
+                    }
+                    .controlSize(.extraLarge)
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 8)
             }
-            .padding(.horizontal, 32)
-            .frame(maxHeight: .infinity)
-            .contentShape(Rectangle())
-            .onTapGesture { UIApplication.shared.endEditing() }
-
-            card(t)
-                .offset(y: appeared ? 0 : 300)
-                .animation(.framer(170, 24).delay(0.3), value: appeared)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(lang == .ar ? "English" : "العربية") {
+                        withAnimation(.snappy) { store.settings.lang = lang == .ar ? .en : .ar }
+                    }
+                }
+            }
+            .toolbarColorScheme(.dark, for: .navigationBar)
         }
-        .background(Palette.screen.ignoresSafeArea())
-        .ignoresSafeArea(.container)
-        .photosPicker(isPresented: $picking, selection: $picked, matching: .images)
+        .tint(Palette.brand)
         .onChange(of: picked) {
             guard let picked else { return }
             Task {
                 if let data = try? await picked.loadTransferable(type: Data.self) { photo = PhotoTools.square(data) }
             }
         }
-        .onAppear { appeared = true }
+        .onAppear { withAnimation(.spring(response: 0.7, dampingFraction: 0.8).delay(0.1)) { appeared = true } }
     }
 
-    // MARK: white card
+    // MARK: steps
 
-    private func card(_ t: Strings) -> some View {
-        let lang = store.settings.lang
-        return VStack(spacing: 0) {
-            HStack(spacing: 6) {
-                ForEach(0..<4, id: \.self) { i in
-                    Capsule()
-                        .fill(i <= step ? Color.black : Palette.grabber)
-                        .frame(width: i == step ? 22 : 7, height: 7)
-                }
-            }
-            .animation(.framer(400, 30), value: step)
-            .padding(.bottom, 22)
-
-            ZStack {
-                stepView(t, lang)
-                    .id(step)
-                    .transition(.asymmetric(
-                        insertion: .offset(x: 60 * dir * (lang == .ar ? -1 : 1)).combined(with: .opacity),
-                        removal: .offset(x: -60 * dir * (lang == .ar ? -1 : 1)).combined(with: .opacity)
-                    ))
-            }
-            .frame(minHeight: 150, alignment: .top)
-            .animation(.framer(300, 30), value: step)
-
-            GlassGroup {
-                HStack(spacing: 8) {
-                    if step > 0 && step < 3 {
-                        PillButton(width: nil) { go(step - 1) } label: { Text(t.back) }
-                            .frame(width: (metrics.width - 44 - 8) * 0.3)
-                            .transition(.opacity.combined(with: .scale(scale: 0.6, anchor: .leading)))
-                    }
-                    PillButton(black: true) {
-                        step < 3 ? go(step + 1) : finish()
-                    } label: {
-                        Text(step == 0 ? t.start : step == 3 ? t.letsGo : t.next)
-                    }
-                }
-                .animation(.framer(300, 30), value: step)
-            }
-            .padding(.top, 18)
+    private func features(_ t: Strings) -> some View {
+        VStack(alignment: .leading, spacing: 26) {
+            feature("waveform", Palette.teal, t.feat1, t.feat1Sub)
+            feature("banknote.fill", .green, t.feat2, t.feat2Sub)
+            feature("lock.iphone", .orange, t.feat3, t.feat3Sub)
         }
-        .padding(.top, 28)
-        .padding(.horizontal, 22)
-        .padding(.bottom, metrics.bottom + 20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func feature(_ symbol: String, _ color: Color, _ title: String, _ sub: String) -> some View {
+        HStack(alignment: .top, spacing: 16) {
+            Image(systemName: symbol)
+                .font(.system(size: 30, weight: .medium))
+                .foregroundStyle(color)
+                .symbolRenderingMode(.hierarchical)
+                .frame(width: 44)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.headline).foregroundStyle(.white)
+                Text(sub).font(.subheadline).foregroundStyle(.white.opacity(0.7))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func nameStep(_ t: Strings) -> some View {
+        VStack(spacing: 20) {
+            PhotosPicker(selection: $picked, matching: .images) {
+                ZStack {
+                    if let photo, let img = UIImage(data: photo) {
+                        Image(uiImage: img).resizable().scaledToFill()
+                    } else {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 28))
+                            .foregroundStyle(.white)
+                    }
+                }
+                .frame(width: 96, height: 96)
+                .clipShape(Circle())
+                .glassEffect(.clear.interactive(), in: .circle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(t.addPhoto)
+            TextField("", text: $name, prompt: Text(t.namePlaceholder).foregroundStyle(.white.opacity(0.5)))
+                .font(.title3)
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+                .submitLabel(.done)
+                .focused($focused)
+                .padding(.horizontal, 20)
+                .frame(height: 56)
+                .glassEffect(.clear, in: .capsule)
+        }
+    }
+
+    private func balanceStep(_ lang: Lang) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            TextField("", text: $balance, prompt: Text("0").foregroundStyle(.white.opacity(0.4)))
+                .keyboardType(.decimalPad)
+                .font(.system(size: 48, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+                .focused($focused)
+                .fixedSize()
+                .onChange(of: balance) {
+                    let raw = SettingsView.clean(balance)
+                    if raw != balance { balance = raw }
+                }
+            Text(Currency.symbol(store.settings.currency, lang))
+                .font(.title3.weight(.medium))
+                .foregroundStyle(.white.opacity(0.7))
+        }
+        .environment(\.layoutDirection, .leftToRight)
         .frame(maxWidth: .infinity)
-        .background(WhiteSheetShape().fill(.white).ignoresSafeArea(edges: .bottom))
-        .clipped()
-    }
-
-    @ViewBuilder
-    private func stepView(_ t: Strings, _ lang: Lang) -> some View {
-        switch step {
-        case 0:
-            VStack(spacing: 6) {
-                Text(lang == .ar ? "أهلاً فيك 👋" : "Welcome 👋").ui(23, .semibold).foregroundStyle(Palette.ink)
-                Text(t.allSetHint)
-                    .ui(14.5)
-                    .lineSpacing(4)
-                    .foregroundStyle(Palette.muted)
-                    .frame(maxWidth: 290)
-            }
-            .multilineTextAlignment(.center)
-        case 1:
-            VStack(spacing: 14) {
-                Text(t.yourName).ui(22, .semibold).foregroundStyle(Palette.ink)
-                HStack(spacing: 10) {
-                    Button { picking = true } label: {
-                        ZStack {
-                            if let photo, let img = UIImage(data: photo) {
-                                Image(uiImage: img).resizable().scaledToFill()
-                            } else {
-                                Icon(.camera, size: 20, stroke: 1.6).foregroundStyle(Palette.iconInk)
-                            }
-                        }
-                        .frame(width: 52, height: 52)
-                        .background(Palette.iconBg)
-                        .clipShape(Circle())
-                    }
-                    .buttonStyle(PressStyle(scale: 0.92))
-                    .accessibilityLabel(t.addPhoto)
-                    TextField("", text: $name, prompt: Text(t.namePlaceholder).foregroundStyle(Palette.muted))
-                        .ui(15)
-                        .submitLabel(.done)
-                        .padding(.horizontal, 18)
-                        .frame(height: 52)
-                        .background(Palette.tile, in: RoundedRectangle(cornerRadius: 18, style: .circular))
-                }
-            }
-        case 2:
-            VStack(spacing: 10) {
-                Text(t.startingBalance).ui(22, .semibold).foregroundStyle(Palette.ink)
-                Text(t.startingHint).ui(12.5).foregroundStyle(Palette.muted)
-                ZStack(alignment: .trailing) {
-                    TextField("", text: $balance, prompt: Text("0").foregroundStyle(Palette.muted))
-                        .keyboardType(.decimalPad)
-                        .font(AppFont.num(28, .medium))
-                        .multilineTextAlignment(.center)
-                        .frame(height: 64)
-                        .background(Palette.tile, in: RoundedRectangle(cornerRadius: 18, style: .circular))
-                        .onChange(of: balance) {
-                            let raw = SettingsView.clean(balance)
-                            if raw != balance { balance = raw }
-                        }
-                    Text(Currency.symbol(store.settings.currency, lang))
-                        .ui(12.5)
-                        .foregroundStyle(Palette.muted)
-                        .padding(.trailing, 18)
-                        .allowsHitTesting(false)
-                }
-                .padding(.top, 6)
-            }
-            .multilineTextAlignment(.center)
-        default:
-            VStack(spacing: 10) {
-                Icon(.check, size: 28, stroke: 2)
-                    .foregroundStyle(.white)
-                    .frame(width: 60, height: 60)
-                    .background(Circle().fill(.black))
-                    .scaleEffect(checkIn ? 1 : 0.01)
-                    .onAppear { withAnimation(.framer(260, 14).delay(0.1)) { checkIn = true } }
-                    .onDisappear { checkIn = false }
-                let trimmed = name.trimmingCharacters(in: .whitespaces)
-                Text(trimmed.isEmpty ? t.allSet : "\(t.allSet)، \(trimmed)")
-                    .ui(22, .semibold)
-                    .foregroundStyle(Palette.ink)
-            }
-        }
+        .padding(.vertical, 18)
+        .glassEffect(.clear, in: .rect(cornerRadius: 28, style: .continuous))
     }
 
     private func go(_ next: Int) {
         Haptic.tap()
-        UIApplication.shared.endEditing()
-        dir = next > step ? 1 : -1
-        DispatchQueue.main.async { step = next }
+        focused = false
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) { step = next }
     }
 
     private func finish() {
-        Haptic.medium()
+        Haptic.success()
         let value = Double(balance) ?? 0
         store.profile = Profile(
             name: name.trimmingCharacters(in: .whitespaces),
@@ -232,22 +193,5 @@ struct WelcomeView: View {
             openingBalance: Currency.toNew(value, store.settings.currency, rate: store.settings.usdRate)
         )
         store.onboarded = true
-    }
-}
-
-enum PhotoTools {
-    /// Square-crops and shrinks a picked photo for the avatar.
-    static func square(_ data: Data, size: CGFloat = 192) -> Data? {
-        guard let image = UIImage(data: data) else { return nil }
-        let side = min(image.size.width, image.size.height)
-        let crop = CGRect(x: (image.size.width - side) / 2, y: (image.size.height - side) / 2, width: side, height: side)
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size), format: format)
-        let out = renderer.image { _ in
-            image.draw(in: CGRect(x: -crop.minX * size / side, y: -crop.minY * size / side,
-                                  width: image.size.width * size / side, height: image.size.height * size / side))
-        }
-        return out.jpegData(compressionQuality: 0.85)
     }
 }

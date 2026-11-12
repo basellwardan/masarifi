@@ -1,107 +1,11 @@
 import SwiftUI
 
-struct TransactionsView: View {
-    @Environment(AppStore.self) private var store
-    @Environment(\.metrics) private var metrics
-    @State private var filter: Filter = .all
-    @State private var sheetIn = false
+struct DayGroup: Identifiable {
+    var id: Date
+    var label: String
+    var items: [Tx]
 
-    enum Filter: Hashable { case all, expense, income }
-
-    private struct DayGroup: Identifiable {
-        var id: Date
-        var label: String
-        var items: [Tx]
-    }
-
-    var body: some View {
-        let t = store.t
-        let month = store.txs(in: store.viewMonth)
-        let list = month.filter {
-            switch filter {
-            case .all: return true
-            case .expense: return $0.type == .expense
-            case .income: return $0.type == .income
-            }
-        }
-        let groups = Self.group(list, t)
-
-        ZStack(alignment: .bottom) {
-            VStack(spacing: 0) {
-                GradHeader(title: t.transactions, action: AnyView(
-                    GlassCircleButton(icon: .calendar, label: t.pickMonth) { store.openSheet(.month) }
-                ))
-
-                VStack(spacing: 0) {
-                    Text("\(t.monthSpend) · \(DateText.monthName(store.viewMonth.month, store.settings.lang))")
-                        .ui(17)
-                        .foregroundStyle(.white.opacity(0.78))
-                    MoneyView(value: AppStore.sum(month, .expense), style: .balance(44), countUp: true)
-                        .padding(.top, 6)
-                    GlassChip {
-                        Text(t.income)
-                        MoneyView(value: AppStore.sum(month, .income), style: .chip)
-                    }
-                    .padding(.top, 12)
-                }
-                .padding(.top, 22)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 28)
-                .modifier(Rise(index: 0, distance: 12))
-
-                VStack(spacing: 0) {
-                    HStack(spacing: 8) {
-                        ChipToggle(title: t.all, on: filter == .all) { pick(.all) }
-                        ChipToggle(title: t.expenses, on: filter == .expense) { pick(.expense) }
-                        ChipToggle(title: t.income, on: filter == .income) { pick(.income) }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 6)
-
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 0) {
-                            if groups.isEmpty {
-                                EmptyList(t: t)
-                            }
-                            ForEach(groups) { g in
-                                Text(g.label)
-                                    .ui(13)
-                                    .foregroundStyle(Palette.muted)
-                                    .padding(.top, 18)
-                                    .padding(.bottom, 4)
-                                ForEach(g.items) { tx in
-                                    TxRow(tx: tx) { store.openSheet(.add(tx.type, editID: tx.id, prefill: nil)) }
-                                        .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: 10)), removal: .opacity))
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 120)
-                        .animation(.easeOutApp(0.28), value: filter)
-                    }
-                    .scrollIndicators(.hidden)
-                }
-                .padding(.top, 22)
-                .frame(maxHeight: .infinity, alignment: .top)
-                .background(
-                    WhiteSheetShape()
-                        .fill(.white)
-                        .shadow(color: Color(hex: 0x050F33, opacity: 0.18), radius: 15, y: -8)
-                )
-                .offset(y: sheetIn ? 0 : 200)
-            }
-            ListFade(color: .white)
-        }
-        .background(Palette.screen)
-        .onAppear { withAnimation(.framer(200, 26)) { sheetIn = true } }
-    }
-
-    private func pick(_ f: Filter) {
-        Haptic.tap()
-        filter = f
-    }
-
-    private static func group(_ list: [Tx], _ t: Strings) -> [DayGroup] {
+    static func group(_ list: [Tx], _ t: Strings) -> [DayGroup] {
         let cal = Calendar.current
         var out: [DayGroup] = []
         for tx in list {
@@ -113,5 +17,136 @@ struct TransactionsView: View {
             }
         }
         return out
+    }
+}
+
+struct TransactionsView: View {
+    @Environment(AppStore.self) private var store
+    var zoom: Namespace.ID
+    @State private var filter: Filter = .all
+
+    enum Filter: Hashable { case all, expense, income }
+
+    var body: some View {
+        let t = store.t
+        let month = store.txs(in: store.viewMonth)
+        let list = month.filter {
+            switch filter {
+            case .all: return true
+            case .expense: return $0.type == .expense
+            case .income: return $0.type == .income
+            }
+        }
+        let groups = DayGroup.group(list, t)
+
+        NavigationStack {
+            List {
+                Section {
+                    MonthSummaryCard(month: month)
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                }
+                if groups.isEmpty {
+                    ContentUnavailableView(t.noTx, systemImage: "tray", description: Text(t.noTxHint))
+                        .listRowBackground(Color.clear)
+                }
+                ForEach(groups) { g in
+                    Section(g.label) {
+                        ForEach(g.items) { tx in
+                            TxListRow(tx: tx, source: "list-\(tx.id)", zoom: zoom)
+                        }
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .animation(.snappy, value: filter)
+            .navigationTitle(t.transactions)
+            .safeAreaBar(edge: .top) {
+                Picker("", selection: $filter) {
+                    Text(t.all).tag(Filter.all)
+                    Text(t.expenses).tag(Filter.expense)
+                    Text(t.income).tag(Filter.income)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 8)
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        store.openSheet(.month, from: "month-tx")
+                    } label: {
+                        Image(systemName: "calendar")
+                    }
+                    .accessibilityLabel(t.pickMonth)
+                }
+                .matchedTransitionSource(id: "month-tx", in: zoom)
+            }
+            .sensoryFeedback(.selection, trigger: filter)
+        }
+    }
+}
+
+/// A list row with native swipe actions, a context menu, and a sheet that
+/// zooms out of the row when tapped.
+struct TxListRow: View {
+    @Environment(AppStore.self) private var store
+    let tx: Tx
+    let source: String
+    var zoom: Namespace.ID
+
+    var body: some View {
+        let t = store.t
+        Button {
+            store.openSheet(.add(tx.type, editID: tx.id, prefill: nil), from: source)
+        } label: {
+            TxRow(tx: tx)
+        }
+        .buttonStyle(.plain)
+        .matchedTransitionSource(id: source, in: zoom)
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(t.delete, systemImage: "trash", role: .destructive) {
+                deleteWithUndo(tx, store)
+            }
+        }
+        .swipeActions(edge: .leading) {
+            Button(t.edit, systemImage: "pencil") {
+                store.openSheet(.add(tx.type, editID: tx.id, prefill: nil), from: source)
+            }
+            .tint(Palette.brand)
+        }
+        .contextMenu { TxMenu(tx: tx, source: source) }
+    }
+}
+
+/// The month's spending on a navy card, like a Wallet card.
+struct MonthSummaryCard: View {
+    @Environment(AppStore.self) private var store
+    let month: [Tx]
+
+    var body: some View {
+        let t = store.t
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("\(t.monthSpend) · \(DateText.monthName(store.viewMonth.month, store.settings.lang))")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.75))
+                Spacer()
+                Image(systemName: "arrow.up.right.circle.fill")
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.white)
+            }
+            MoneyText(AppStore.sum(month, .expense), size: 38, weight: .bold, relativeTo: .largeTitle)
+                .foregroundStyle(.white)
+            GlassChip {
+                Image(systemName: "arrow.down.left")
+                Text(t.income)
+                MoneyText(AppStore.sum(month, .income), size: 15, weight: .semibold, relativeTo: .subheadline)
+            }
+            .padding(.top, 6)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Palette.hero, in: .rect(cornerRadius: 26, style: .continuous))
     }
 }

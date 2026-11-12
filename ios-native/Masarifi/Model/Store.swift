@@ -6,6 +6,7 @@ enum ActiveSheet: Identifiable, Equatable {
     case add(TxType, editID: String?, prefill: Prefill?)
     case month
     case notifications
+    case voice
 
     struct Prefill: Equatable {
         var amount: Double? // new SYP
@@ -17,12 +18,13 @@ enum ActiveSheet: Identifiable, Equatable {
         case .add(let type, let edit, _): return "add-\(type.rawValue)-\(edit ?? "new")"
         case .month: return "month"
         case .notifications: return "notifications"
+        case .voice: return "voice"
         }
     }
 }
 
 enum AppTab: Int, Hashable, CaseIterable {
-    case home, tx, stats, voice, settings
+    case home, tx, stats, settings, search
 }
 
 /// Black pill at the bottom ("Saved", "Deleted · Undo").
@@ -43,9 +45,9 @@ final class AppStore {
     // UI state (not saved)
     var viewMonth = MonthKey.current
     var sheet: ActiveSheet?
-    private(set) var tab: AppTab = .home
-    /// +1 when moving right along the tab bar, -1 when moving left
-    private(set) var tabDirection: CGFloat = 1
+    /// id of the button a sheet zooms out of (matchedTransitionSource)
+    var sheetSource = ""
+    var tab: AppTab = .home
     var toast: Toast?
 
     private static let key = "masarifi.native.v1"
@@ -62,7 +64,7 @@ final class AppStore {
 
     #if DEBUG
     /// Simulator screenshots on CI: `-uiDemo` loads sample data, `-uiTab 2`
-    /// opens a tab, `-uiSheet add|month|notifications`, `-uiLang en`,
+    /// opens a tab, `-uiSheet add|month|notifications|voice`, `-uiLang en`,
     /// `-uiWelcome` shows onboarding. Not compiled into release builds.
     private func applyScreenshotArguments() {
         let args = ProcessInfo.processInfo.arguments
@@ -95,20 +97,20 @@ final class AppStore {
         case "add": sheet = .add(.expense, editID: nil, prefill: nil)
         case "month": sheet = .month
         case "notifications": sheet = .notifications
+        case "voice": sheet = .voice
         default: break
         }
     }
     #endif
 
     // MARK: navigation
-    func setTab(_ next: AppTab) {
-        guard next != tab else { return }
-        // set the direction first so the outgoing screen slides the right way
-        tabDirection = next.rawValue > tab.rawValue ? 1 : -1
-        DispatchQueue.main.async { self.tab = next }
-    }
+    func setTab(_ next: AppTab) { tab = next }
 
-    func openSheet(_ s: ActiveSheet) { sheet = s }
+    /// Opens a sheet that grows out of the view marked with `source`.
+    func openSheet(_ s: ActiveSheet, from source: String = "") {
+        sheetSource = source
+        sheet = s
+    }
     func closeSheet() { sheet = nil }
 
     func showToast(_ message: String, undo: Tx? = nil) {

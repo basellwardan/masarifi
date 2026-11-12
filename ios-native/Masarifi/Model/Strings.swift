@@ -107,6 +107,15 @@ struct Strings {
         "saved": "انحفظ",
         "deleted": "انحذف",
         "undo": "تراجع",
+        "search": "بحث",
+        "searchPrompt": "ابحث بالعمليات",
+        "continueTitle": "متابعة",
+        "feat1": "سجّل بصوتك",
+        "feat1Sub": "احكي شو صرفت، ومصاريفي بيفهم المبلغ وإذا دخل أو مصروف.",
+        "feat2": "بالليرة الجديدة",
+        "feat2Sub": "وبتقدر تعرض المبالغ بالقديمة أو بالدولار بسعرك.",
+        "feat3": "كلشي على جهازك",
+        "feat3Sub": "بياناتك محفوظة على تلفونك بدون حساب، وبتقدر تشارك ملخصك.",
     ])
 
     static let en = Strings(lang: .en, table: [
@@ -197,6 +206,15 @@ struct Strings {
         "saved": "Saved",
         "deleted": "Deleted",
         "undo": "Undo",
+        "search": "Search",
+        "searchPrompt": "Search transactions",
+        "continueTitle": "Continue",
+        "feat1": "Say it out loud",
+        "feat1Sub": "Tell it what you spent and it works out the amount and whether money came in or went out.",
+        "feat2": "In the new pound",
+        "feat2Sub": "Or show amounts in old pounds or dollars at your own rate.",
+        "feat3": "Stays on your phone",
+        "feat3Sub": "Everything is saved on your phone with no account, and you can share a summary.",
     ])
 }
 
@@ -248,31 +266,38 @@ enum DateText {
     }
 }
 
-/// Picks a Lucide icon that fits what the user wrote/said (same keyword
-/// groups as src/lib/categories.ts). There are no user-facing categories.
+/// An SF Symbol and colour that fit what the user wrote or said (same
+/// keyword groups as src/lib/categories.ts). There are no user-facing categories.
+struct TxIcon: Equatable {
+    let symbol: String
+    let hex: UInt32
+}
+
 enum IconHints {
-    private static let groups: [(LucideIcon, [String])] = [
-        (.shoppingCart, ["بقاله", "سوبرماركت", "ماركت", "خضره", "خضار", "فواكه", "فاكهه", "لحمه", "لحم", "خبز", "سمانه", "مونه", "grocery", "groceries", "market", "supermarket", "bread"]),
-        (.shirt, ["تياب", "ثياب", "ملابس", "لباس", "قميص", "بنطلون", "كنزه", "جاكيت", "صباط", "حذاء", "كندره", "clothes", "shoes", "shirt", "jacket"]),
-        (.heartPulse, ["دوا", "دواء", "ادويه", "صيدليه", "دكتور", "طبيب", "مشفى", "مستشفى", "تحاليل", "عياده", "اسنان", "pharmacy", "doctor", "medicine", "hospital"]),
-        (.dumbbell, ["نادي", "جيم", "رياضه", "كوره", "مسبح", "gym", "sport", "football"]),
-        (.coffee, ["مطعم", "قهوه", "كافيه", "كافي", "اركيله", "نركيله", "اكل", "غدا", "عشا", "فطور", "شاورما", "فلافل", "بيتزا", "سندويش", "عصير", "restaurant", "coffee", "cafe", "lunch", "dinner", "breakfast", "food", "pizza"]),
-        (.bus, ["تكسي", "تاكسي", "سرفيس", "سرافيس", "باص", "بنزين", "مازوت", "سفر", "مواصلات", "تذكره", "طياره", "taxi", "bus", "fuel", "petrol", "travel", "ticket", "uber"]),
-        (.receipt, ["كهربا", "كهرباء", "مياه", "نت", "انترنت", "فاتوره", "فواتير", "رصيد", "موبايل", "امبير", "امبيرات", "اشتراك", "bill", "bills", "internet", "electricity", "water", "phone"]),
-        (.house, ["ايجار", "اجار", "بيت", "غاز", "جره", "اثاث", "تصليح", "منظفات", "rent", "home", "house", "furniture"]),
-        (.graduationCap, ["جامعه", "كتب", "كتاب", "قسط", "دروس", "مدرسه", "دوره", "محاضرات", "نوطه", "university", "school", "books", "course", "tuition"]),
-        (.gift, ["هديه", "هدايا", "عيديه", "gift", "gifts", "present"]),
-        (.wallet, ["راتب", "معاش", "salary", "paycheck", "wage"]),
-        (.send, ["حواله", "حوالات", "remittance", "transfer"]),
+    private static let groups: [(TxIcon, [String])] = [
+        (TxIcon(symbol: "cart.fill", hex: 0x34C759), ["بقاله", "سوبرماركت", "ماركت", "خضره", "خضار", "فواكه", "فاكهه", "لحمه", "لحم", "خبز", "سمانه", "مونه", "grocery", "groceries", "market", "supermarket", "bread"]),
+        (TxIcon(symbol: "tshirt.fill", hex: 0xAF52DE), ["تياب", "ثياب", "ملابس", "لباس", "قميص", "بنطلون", "كنزه", "جاكيت", "صباط", "حذاء", "كندره", "clothes", "shoes", "shirt", "jacket"]),
+        (TxIcon(symbol: "cross.case.fill", hex: 0xFF3B30), ["دوا", "دواء", "ادويه", "صيدليه", "دكتور", "طبيب", "مشفى", "مستشفى", "تحاليل", "عياده", "اسنان", "pharmacy", "doctor", "medicine", "hospital"]),
+        (TxIcon(symbol: "dumbbell.fill", hex: 0xFF9500), ["نادي", "جيم", "رياضه", "كوره", "مسبح", "gym", "sport", "football"]),
+        (TxIcon(symbol: "cup.and.saucer.fill", hex: 0xA2845E), ["مطعم", "قهوه", "كافيه", "كافي", "اركيله", "نركيله", "اكل", "غدا", "عشا", "فطور", "شاورما", "فلافل", "بيتزا", "سندويش", "عصير", "restaurant", "coffee", "cafe", "lunch", "dinner", "breakfast", "food", "pizza"]),
+        (TxIcon(symbol: "bus.fill", hex: 0x007AFF), ["تكسي", "تاكسي", "سرفيس", "سرافيس", "باص", "بنزين", "مازوت", "سفر", "مواصلات", "تذكره", "طياره", "taxi", "bus", "fuel", "petrol", "travel", "ticket", "uber"]),
+        (TxIcon(symbol: "bolt.fill", hex: 0xFFCC00), ["كهربا", "كهرباء", "مياه", "نت", "انترنت", "فاتوره", "فواتير", "رصيد", "موبايل", "امبير", "امبيرات", "اشتراك", "bill", "bills", "internet", "electricity", "water", "phone"]),
+        (TxIcon(symbol: "house.fill", hex: 0x30B0C7), ["ايجار", "اجار", "بيت", "غاز", "جره", "اثاث", "تصليح", "منظفات", "rent", "home", "house", "furniture"]),
+        (TxIcon(symbol: "graduationcap.fill", hex: 0x5856D6), ["جامعه", "كتب", "كتاب", "قسط", "دروس", "مدرسه", "دوره", "محاضرات", "نوطه", "university", "school", "books", "course", "tuition"]),
+        (TxIcon(symbol: "gift.fill", hex: 0xFF2D55), ["هديه", "هدايا", "عيديه", "gift", "gifts", "present"]),
+        (TxIcon(symbol: "banknote.fill", hex: 0x34C759), ["راتب", "معاش", "salary", "paycheck", "wage"]),
+        (TxIcon(symbol: "paperplane.fill", hex: 0x32ADE6), ["حواله", "حوالات", "remittance", "transfer"]),
     ]
 
-    private static var cache: [String: LucideIcon] = [:]
+    private static var cache: [String: TxIcon] = [:]
 
-    static func icon(for text: String, type: TxType) -> LucideIcon {
+    static func icon(for text: String, type: TxType) -> TxIcon {
         let key = "\(type.rawValue)|\(text)"
         if let hit = cache[key] { return hit }
         let tokens = ArabicText.tokens(text)
-        var found: LucideIcon = type == .expense ? .arrowUpRight : .arrowDownLeft
+        var found = type == .expense
+            ? TxIcon(symbol: "arrow.up.right", hex: 0x8E8E93)
+            : TxIcon(symbol: "arrow.down.left", hex: 0x34C759)
         outer: for (icon, words) in groups {
             for t in tokens where ArabicText.stems(t).contains(where: { words.contains($0) }) {
                 found = icon
