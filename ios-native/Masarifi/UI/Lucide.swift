@@ -92,6 +92,8 @@ struct Icon: View {
             shape.stroke(style: style)
         }
         .frame(width: size, height: size)
+        // SVG icons are never mirrored in the APK, even in Arabic
+        .environment(\.layoutDirection, .leftToRight)
         .accessibilityHidden(true)
     }
 }

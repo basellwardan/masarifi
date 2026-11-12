@@ -224,9 +224,11 @@ struct CardStack: View {
                 Text(t.monthSpend)
                     .ui(13.5)
                     .foregroundStyle(.white.opacity(0.92))
+                    .fixedSize()
                 MoneyView(value: spend, style: MoneyStyle(size: 13.5, weight: .regular, color: .white.opacity(0.92), symSize: 12))
                     .opacity(0.85)
             }
+            .layoutPriority(1)
             Spacer(minLength: 8)
             Text(label)
                 .font(AppFont.ui(16, lang == .en ? .heavy : .bold, lang))

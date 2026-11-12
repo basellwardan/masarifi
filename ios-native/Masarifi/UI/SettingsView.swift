@@ -318,6 +318,7 @@ struct MiniSeg<T: Hashable>: View {
         }
         .padding(3)
         .background(Capsule().fill(.white))
+        .fixedSize()
         .animation(.framer(500, 38), value: value)
     }
 }
