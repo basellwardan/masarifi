@@ -141,7 +141,7 @@ struct HomeView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(t.recent).font(.title2.weight(.bold))
                 Spacer()
-                Button(t.viewAll) { store.setTab(.tx) }
+                Button(t.viewAll) { store.showActivity(.list) }
                     .font(.body)
             }
             .padding(.horizontal, 20)
@@ -241,6 +241,7 @@ struct CardStack: View {
         .padding(.top, 16)
         .padding(.bottom, 40)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background { CardFace() }
         .keyframeAnimator(initialValue: CGFloat(0), trigger: shake) { content, x in
             content.offset(x: x)
         } keyframes: { _ in
@@ -250,11 +251,11 @@ struct CardStack: View {
             LinearKeyframe(0, duration: 0.0875)
         }
         .contentShape(.rect(cornerRadius: 24))
-        .glassEffect(.clear.tint(.white.opacity(0.12)).interactive(), in: .rect(cornerRadius: 24, style: .continuous))
+        .compositingGroup()
         .scaleEffect(dragging ? 1.03 : 1)
         .offset(x: drag)
         .rotationEffect(.degrees(Double(drag / 40)), anchor: .bottom)
-        .onTapGesture { store.setTab(.stats) }
+        .onTapGesture { store.showActivity(.stats) }
         .gesture(
             DragGesture(minimumDistance: 8)
                 .onChanged { v in
@@ -295,6 +296,23 @@ struct CardStack: View {
                 store.viewMonth = next
             }
         }
+    }
+}
+
+/// Frosted face of the month card: a soft white fill and a hairline edge
+/// that fades out towards the bottom, so it never shows a bright rim when
+/// dragged or tilted.
+struct CardFace: View {
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
+        shape
+            .fill(LinearGradient(colors: [.white.opacity(0.24), .white.opacity(0.12)],
+                                 startPoint: .top, endPoint: .bottom))
+            .overlay(
+                shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.35), .white.opacity(0.06)],
+                                                  startPoint: .top, endPoint: .bottom),
+                                   lineWidth: 1)
+            )
     }
 }
 

@@ -73,7 +73,6 @@ jobs:
           shot 2-transactions -uiDemo -uiTab 1
           shot 3-stats -uiDemo -uiTab 2
           shot 4-settings -uiDemo -uiTab 3
-          shot 5-search -uiDemo -uiTab 4
           shot 6-voice -uiDemo -uiTab 0 -uiSheet voice
           shot 7-add -uiDemo -uiTab 0 -uiSheet add
           shot 8-month -uiDemo -uiTab 2 -uiSheet month

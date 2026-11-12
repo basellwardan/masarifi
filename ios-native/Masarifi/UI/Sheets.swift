@@ -27,19 +27,13 @@ struct AddSheet: View {
         let valueNew = Currency.toNew(value, cur, rate: store.settings.usdRate)
 
         NavigationStack {
-            VStack(spacing: 14) {
-                Picker("", selection: $type) {
-                    Text(t.withdraw).tag(TxType.expense)
-                    Text(t.deposit).tag(TxType.income)
-                }
-                .pickerStyle(.segmented)
-
+            VStack(spacing: 10) {
                 // amount
                 VStack(spacing: 4) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        if cur == .usd { Text("$").font(.system(size: 34, weight: .semibold, design: .rounded)) }
+                        if cur == .usd { Text("$").font(.system(size: 30, weight: .semibold, design: .rounded)) }
                         Text(display)
-                            .font(.system(size: 56, weight: .bold, design: .rounded))
+                            .font(.system(size: 46, weight: .bold, design: .rounded))
                             .monospacedDigit()
                             .foregroundStyle(amountText.isEmpty ? .tertiary : .primary)
                             .contentTransition(.numericText())
@@ -57,20 +51,19 @@ struct AddSheet: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
-                .padding(.vertical, 8)
 
                 HStack(spacing: 10) {
                     TextField(type == .expense ? t.notePlaceholderExpense : t.notePlaceholderIncome, text: $note)
                         .focused($noteFocused)
                         .submitLabel(.done)
                         .padding(.horizontal, 16)
-                        .frame(height: 50)
+                        .frame(height: 46)
                         .background(Color(.tertiarySystemFill), in: .capsule)
                     Button(action: toggleMic) {
                         Image(systemName: listener.isListening ? "stop.fill" : "mic.fill")
                             .font(.title3)
                             .contentTransition(.symbolEffect(.replace))
-                            .frame(width: 50, height: 50)
+                            .frame(width: 46, height: 46)
                     }
                     .buttonStyle(.plain)
                     .glassEffect(listener.isListening ? .regular.tint(.red).interactive() : .regular.interactive(), in: .circle)
@@ -81,11 +74,20 @@ struct AddSheet: View {
                 keypad(cur)
             }
             .padding(.horizontal, 20)
-            .padding(.top, 8)
+            .padding(.top, 4)
             .frame(maxHeight: .infinity, alignment: .top)
             .navigationTitle(existing == nil ? (type == .expense ? t.withdraw : t.deposit) : t.edit)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Picker("", selection: $type) {
+                        Text(t.withdraw).tag(TxType.expense)
+                        Text(t.deposit).tag(TxType.income)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: existing == nil ? 190 : 150)
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button(role: .cancel) { dismiss() } label: { Image(systemName: "xmark") }
                 }
@@ -108,7 +110,9 @@ struct AddSheet: View {
                 }
             }
         }
-        .presentationDetents([.large])
+        .presentationDetents([.custom(EntryDetent.self)])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(32)
         .sensoryFeedback(.selection, trigger: type)
         .onAppear(perform: load)
         .onDisappear { listener.cancel() }
@@ -127,19 +131,19 @@ struct AddSheet: View {
 
     private func keypad(_ cur: CurrencyCode) -> some View {
         let keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "del"]
-        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 4) {
             ForEach(keys, id: \.self) { k in
                 Button { press(k, cur) } label: {
                     Group {
                         if k == "del" {
                             Image(systemName: "delete.left").font(.title2)
                         } else {
-                            Text(k).font(.system(size: 30, weight: .medium, design: .rounded))
+                            Text(k).font(.system(size: 28, weight: .medium, design: .rounded))
                         }
                     }
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 58)
+                    .frame(height: 50)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(KeyStyle())
@@ -207,6 +211,14 @@ struct AddSheet: View {
         }
         store.showToast(store.t.saved)
         dismiss()
+    }
+}
+
+/// About 60% of the screen: half-height, but never too short for the keypad
+/// on small iPhones.
+private struct EntryDetent: CustomPresentationDetent {
+    static func height(in context: Context) -> CGFloat? {
+        max(context.maxDetentValue * 0.6, min(480, context.maxDetentValue))
     }
 }
 

@@ -14,49 +14,41 @@ struct StatsView: View {
         let all = AppStore.byItem(month, .expense)
         let bubbles = Self.topItems(all, othersLabel: t.others)
 
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 0) {
+        ScrollView {
+            VStack(spacing: 0) {
+                VStack(spacing: 4) {
+                    Text(DateText.monthTitle(store.viewMonth, store.settings.lang))
+                        .font(.headline)
+                        .foregroundStyle(.white.opacity(0.8))
+                        .contentTransition(.opacity)
+                        .padding(.top, 8)
                     BubbleField(items: bubbles, total: total, emptyText: t.noStats, fallbackLabel: t.expense)
                         .frame(height: 400)
                         .padding(.horizontal, 16)
                         .id(store.viewMonth)
-                        .padding(.bottom, 24)
-                        .frame(maxWidth: .infinity)
-                        .background(Palette.screen)
-                        .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 36, bottomTrailingRadius: 36, style: .continuous))
+                }
+                .padding(.bottom, 24)
+                .frame(maxWidth: .infinity)
+                .background(Palette.screen)
+                .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 36, bottomTrailingRadius: 36, style: .continuous))
 
-                    breakdown(all, total: total, t: t)
-                        .padding(.top, 24)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 24)
-                }
-                .background(Palette.grouped)
+                breakdown(all, total: total, t: t)
+                    .padding(.top, 24)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 24)
             }
-            .background {
-                VStack(spacing: 0) { Palette.heroTop; Palette.grouped }.ignoresSafeArea()
-            }
-            .scrollEdgeEffectStyle(.soft, for: .top)
-            .onScrollGeometryChange(for: Bool.self) { geo in
-                geo.contentOffset.y + geo.contentInsets.top > 330
-            } action: { _, past in
-                pastHero = past
-            }
-            .navigationTitle(DateText.monthTitle(store.viewMonth, store.settings.lang))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarColorScheme(pastHero ? nil : .dark, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        store.openSheet(.month, from: "month-stats")
-                    } label: {
-                        Image(systemName: "calendar")
-                    }
-                    .accessibilityLabel(t.pickMonth)
-                }
-                .matchedTransitionSource(id: "month-stats", in: zoom)
-            }
+            .background(Palette.grouped)
         }
+        .background {
+            VStack(spacing: 0) { Palette.heroTop; Palette.grouped }.ignoresSafeArea()
+        }
+        .scrollEdgeEffectStyle(.soft, for: .top)
+        .onScrollGeometryChange(for: Bool.self) { geo in
+            geo.contentOffset.y + geo.contentInsets.top > 360
+        } action: { _, past in
+            pastHero = past
+        }
+        .toolbarColorScheme(pastHero ? nil : .dark, for: .navigationBar)
     }
 
     /// The five biggest things the money went on, plus one "Others" bubble for the rest.
@@ -72,7 +64,9 @@ struct StatsView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(t.expenses).font(.title2.weight(.bold))
                 Spacer()
-                Button(t.viewAll) { store.setTab(.tx) }
+                Button(t.viewAll) {
+                    withAnimation { store.activityMode = .list }
+                }
             }
             .padding(.horizontal, 4)
             MoneyText(total, size: 40, weight: .bold, relativeTo: .largeTitle)

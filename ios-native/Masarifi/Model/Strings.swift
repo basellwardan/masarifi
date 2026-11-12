@@ -16,6 +16,8 @@ struct Strings {
     }
 
     func currencyName(_ c: CurrencyCode) -> String { self[dynamicMember: c.rawValue] }
+    /// Short name that fits a segmented control ("New SYP").
+    func currencyShort(_ c: CurrencyCode) -> String { self[dynamicMember: "cur_" + c.rawValue] }
 
     static func of(_ lang: Lang) -> Strings { lang == .ar ? ar : en }
 
@@ -107,8 +109,10 @@ struct Strings {
         "saved": "انحفظ",
         "deleted": "انحذف",
         "undo": "تراجع",
-        "search": "بحث",
-        "searchPrompt": "ابحث بالعمليات",
+        "cur_syp_new": "ل.س جديدة",
+        "cur_syp_old": "ل.س قديمة",
+        "cur_usd": "دولار",
+        "filter": "تصفية",
         "continueTitle": "متابعة",
         "feat1": "سجّل بصوتك",
         "feat1Sub": "احكي شو صرفت، ومصاريفي بيفهم المبلغ وإذا دخل أو مصروف.",
@@ -206,8 +210,10 @@ struct Strings {
         "saved": "Saved",
         "deleted": "Deleted",
         "undo": "Undo",
-        "search": "Search",
-        "searchPrompt": "Search transactions",
+        "cur_syp_new": "New SYP",
+        "cur_syp_old": "Old SYP",
+        "cur_usd": "USD",
+        "filter": "Filter",
         "continueTitle": "Continue",
         "feat1": "Say it out loud",
         "feat1Sub": "Tell it what you spent and it works out the amount and whether money came in or went out.",

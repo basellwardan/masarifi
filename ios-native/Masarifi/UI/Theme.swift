@@ -20,6 +20,12 @@ enum Palette {
     static let heroTop = Color(hex: 0x061541)
     static let brand = Color(hex: 0x1D56B0)
     static let teal = Color(hex: 0x3CC6D4)
+    /// Brand blue that stays readable on dark glass.
+    static let brandBright = Color(UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0x5B / 255, green: 0x9B / 255, blue: 0xF0 / 255, alpha: 1)
+            : UIColor(red: 0x1D / 255, green: 0x56 / 255, blue: 0xB0 / 255, alpha: 1)
+    })
 
     static let hero = LinearGradient(
         stops: [

@@ -39,51 +39,89 @@ struct TransactionsView: View {
         }
         let groups = DayGroup.group(list, t)
 
-        NavigationStack {
-            List {
-                Section {
-                    MonthSummaryCard(month: month)
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
-                }
-                if groups.isEmpty {
-                    ContentUnavailableView(t.noTx, systemImage: "tray", description: Text(t.noTxHint))
-                        .listRowBackground(Color.clear)
-                }
-                ForEach(groups) { g in
-                    Section(g.label) {
-                        ForEach(g.items) { tx in
-                            TxListRow(tx: tx, source: "list-\(tx.id)", zoom: zoom)
-                        }
+        List {
+            Section {
+                MonthSummaryCard(month: month)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
+            if groups.isEmpty {
+                ContentUnavailableView(t.noTx, systemImage: "tray", description: Text(t.noTxHint))
+                    .listRowBackground(Color.clear)
+            }
+            ForEach(groups) { g in
+                Section(g.label) {
+                    ForEach(g.items) { tx in
+                        TxListRow(tx: tx, source: "list-\(tx.id)", zoom: zoom)
                     }
                 }
             }
-            .listStyle(.insetGrouped)
-            .animation(.snappy, value: filter)
-            .navigationTitle(t.transactions)
-            .toolbarTitleDisplayMode(.inlineLarge)
-            .safeAreaBar(edge: .top) {
-                Picker("", selection: $filter) {
-                    Text(t.all).tag(Filter.all)
-                    Text(t.expenses).tag(Filter.expense)
-                    Text(t.income).tag(Filter.income)
+        }
+        .listStyle(.insetGrouped)
+        .animation(.snappy, value: filter)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Menu {
+                    Picker(t.filter, selection: $filter) {
+                        Label(t.all, systemImage: "tray.full").tag(Filter.all)
+                        Label(t.expenses, systemImage: "arrow.up.right").tag(Filter.expense)
+                        Label(t.income, systemImage: "arrow.down.left").tag(Filter.income)
+                    }
+                } label: {
+                    Image(systemName: filter == .all
+                          ? "line.3.horizontal.decrease"
+                          : "line.3.horizontal.decrease.circle.fill")
                 }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 8)
+                .accessibilityLabel(t.filter)
             }
+        }
+        .sensoryFeedback(.selection, trigger: filter)
+    }
+}
+
+/// Transactions and Statistics in one tab: a segmented switch in the bar
+/// flips between the list and the bubbles.
+struct ActivityTab: View {
+    @Environment(AppStore.self) private var store
+    var zoom: Namespace.ID
+
+    var body: some View {
+        @Bindable var store = store
+        let t = store.t
+        NavigationStack {
+            ZStack {
+                if store.activityMode == .list {
+                    TransactionsView(zoom: zoom)
+                        .transition(.opacity)
+                } else {
+                    StatsView(zoom: zoom)
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeInOut(duration: 0.25), value: store.activityMode)
+            .navigationTitle(store.activityMode == .list ? t.transactions : t.stats)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Picker(t.transactions, selection: $store.activityMode) {
+                        Text(t.transactions).tag(ActivityMode.list)
+                        Text(t.stats).tag(ActivityMode.stats)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 230)
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        store.openSheet(.month, from: "month-tx")
+                        store.openSheet(.month, from: "month-activity")
                     } label: {
                         Image(systemName: "calendar")
                     }
                     .accessibilityLabel(t.pickMonth)
                 }
-                .matchedTransitionSource(id: "month-tx", in: zoom)
+                .matchedTransitionSource(id: "month-activity", in: zoom)
             }
-            .sensoryFeedback(.selection, trigger: filter)
+            .sensoryFeedback(.selection, trigger: store.activityMode)
         }
     }
 }

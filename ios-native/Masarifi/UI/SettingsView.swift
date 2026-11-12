@@ -66,19 +66,36 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Picker(selection: $store.settings.lang) {
-                        Text("العربية").tag(Lang.ar)
-                        Text("English").tag(Lang.en)
-                    } label: {
+                    // segmented controls: slide or tap to switch, no menu in between
+                    VStack(alignment: .leading, spacing: 12) {
                         Label { Text(t.language) } icon: { SettingsIcon(symbol: "globe", color: .blue) }
-                    }
-                    Picker(selection: $store.settings.currency) {
-                        ForEach(CurrencyCode.allCases, id: \.self) { c in
-                            Text(t.currencyName(c)).tag(c)
+                        Picker(t.language, selection: $store.settings.lang) {
+                            Text("العربية").tag(Lang.ar)
+                            Text("English").tag(Lang.en)
                         }
-                    } label: {
-                        Label { Text(t.currency) } icon: { SettingsIcon(symbol: "banknote.fill", color: .orange) }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
                     }
+                    .padding(.vertical, 4)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label {
+                            HStack {
+                                Text(t.currency)
+                                Spacer()
+                                Text(t.currencyName(store.settings.currency))
+                                    .foregroundStyle(.secondary)
+                                    .contentTransition(.opacity)
+                            }
+                        } icon: { SettingsIcon(symbol: "banknote.fill", color: .orange) }
+                        Picker(t.currency, selection: $store.settings.currency.animation(.snappy)) {
+                            ForEach(CurrencyCode.allCases, id: \.self) { c in
+                                Text(t.currencyShort(c)).tag(c)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                    }
+                    .padding(.vertical, 4)
                     LabeledContent {
                         TextField("110", text: $rate)
                             .keyboardType(.decimalPad)
@@ -182,43 +199,5 @@ struct SettingsView: View {
 
     static var version: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-    }
-}
-
-/// Search tab: every transaction, filtered as you type.
-struct SearchView: View {
-    @Environment(AppStore.self) private var store
-    var zoom: Namespace.ID
-    @State private var query = ""
-
-    var body: some View {
-        let t = store.t
-        let q = ArabicText.normalize(query)
-        let results = q.isEmpty ? store.txs : store.txs.filter { ArabicText.normalize($0.note).contains(q) }
-        let groups = DayGroup.group(results, t)
-
-        NavigationStack {
-            List {
-                ForEach(groups) { g in
-                    Section(g.label) {
-                        ForEach(g.items) { tx in
-                            TxListRow(tx: tx, source: "search-\(tx.id)", zoom: zoom)
-                        }
-                    }
-                }
-            }
-            .listStyle(.insetGrouped)
-            .overlay {
-                if results.isEmpty {
-                    if query.isEmpty {
-                        ContentUnavailableView(t.noTx, systemImage: "tray", description: Text(t.noTxHint))
-                    } else {
-                        ContentUnavailableView.search(text: query)
-                    }
-                }
-            }
-            .navigationTitle(t.search)
-            .searchable(text: $query, prompt: t.searchPrompt)
-        }
     }
 }

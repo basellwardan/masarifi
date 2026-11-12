@@ -23,8 +23,13 @@ enum ActiveSheet: Identifiable, Equatable {
     }
 }
 
-enum AppTab: Int, Hashable, CaseIterable {
-    case home, tx, stats, settings, search
+enum AppTab: Hashable, CaseIterable {
+    case home, activity, settings
+}
+
+/// The Transactions tab shows either the list or the statistics.
+enum ActivityMode: Hashable, CaseIterable {
+    case list, stats
 }
 
 /// Black pill at the bottom ("Saved", "Deleted · Undo").
@@ -48,6 +53,7 @@ final class AppStore {
     /// id of the button a sheet zooms out of (matchedTransitionSource)
     var sheetSource = ""
     var tab: AppTab = .home
+    var activityMode: ActivityMode = .list
     var toast: Toast?
 
     private static let key = "masarifi.native.v1"
@@ -64,7 +70,8 @@ final class AppStore {
 
     #if DEBUG
     /// Simulator screenshots on CI: `-uiDemo` loads sample data, `-uiTab 2`
-    /// opens a tab, `-uiSheet add|month|notifications|voice`, `-uiLang en`,
+    /// opens a screen (0 home, 1 transactions, 2 statistics, 3 settings),
+    /// `-uiSheet add|month|notifications|voice`, `-uiLang en`,
     /// `-uiWelcome` shows onboarding. Not compiled into release builds.
     private func applyScreenshotArguments() {
         let args = ProcessInfo.processInfo.arguments
@@ -92,7 +99,12 @@ final class AppStore {
             Tx(id: "d12", type: .income, amount: 500, note: "الراتب", date: day(5, 9, 0)),
         ]
         onboarded = !args.contains("-uiWelcome")
-        tab = AppTab(rawValue: defaults.integer(forKey: "uiTab")) ?? .home
+        switch defaults.integer(forKey: "uiTab") {
+        case 1: showActivity(.list)
+        case 2: showActivity(.stats)
+        case 3: tab = .settings
+        default: tab = .home
+        }
         switch defaults.string(forKey: "uiSheet") {
         case "add": sheet = .add(.expense, editID: nil, prefill: nil)
         case "month": sheet = .month
@@ -105,6 +117,12 @@ final class AppStore {
 
     // MARK: navigation
     func setTab(_ next: AppTab) { tab = next }
+
+    /// Opens the Transactions tab on the list or the statistics.
+    func showActivity(_ mode: ActivityMode) {
+        activityMode = mode
+        tab = .activity
+    }
 
     /// Opens a sheet that grows out of the view marked with `source`.
     func openSheet(_ s: ActiveSheet, from source: String = "") {

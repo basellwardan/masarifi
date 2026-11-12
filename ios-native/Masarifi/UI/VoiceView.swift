@@ -63,9 +63,13 @@ struct VoiceSheet: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 40)
                 .padding(.bottom, 30)
+                // fill the sheet's width so the gradient reaches both edges
+                .frame(maxWidth: .infinity)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .scrollBounceBehavior(.basedOnSize)
-            .background(Palette.screen.ignoresSafeArea())
+            .background { Palette.screen.ignoresSafeArea() }
+            .containerBackground(Palette.screen, for: .navigation)
             .navigationTitle(t.voice)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
@@ -79,6 +83,7 @@ struct VoiceSheet: View {
             }
         }
         .tint(.white)
+        .presentationBackground(Palette.screen)
         .presentationDetents([.large])
         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: amount != nil)
         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: listening)
