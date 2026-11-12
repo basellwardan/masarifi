@@ -1,0 +1,26 @@
+{
+	"appId": "com.masarifi.app",
+	"appName": "مصاريفي",
+	"webDir": "dist",
+	"backgroundColor": "#071A4A",
+	"android": {
+		"adjustMarginsForEdgeToEdge": "disable"
+	},
+	"plugins": {
+		"SplashScreen": {
+			"launchShowDuration": 0,
+			"launchAutoHide": true,
+			"backgroundColor": "#071A4A"
+		}
+	},
+	"packageClassList": [
+		"SpeechRecognition",
+		"AppPlugin",
+		"FilesystemPlugin",
+		"HapticsPlugin",
+		"PreferencesPlugin",
+		"SharePlugin",
+		"SplashScreenPlugin",
+		"StatusBarPlugin"
+	]
+}

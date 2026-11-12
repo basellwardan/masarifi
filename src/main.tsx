@@ -9,21 +9,15 @@ import '@fontsource/ibm-plex-sans-arabic/600.css';
 import '@fontsource/ibm-plex-sans-arabic/700.css';
 import './styles/app.css';
 
-import { Capacitor } from '@capacitor/core';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { useStore } from './lib/store';
 import { useUi } from './lib/ui';
 
-// iPhone: Liquid Glass styling layer (see app.css "iPhone: Liquid Glass")
-if (Capacitor.getPlatform() === 'ios' || new URLSearchParams(location.search).has('ios')) {
-  document.documentElement.classList.add('ios');
-}
-
 // Weaker phones (≤4 cores or ≤4 GB RAM) skip the remaining live blur.
 const nav = navigator as Navigator & { deviceMemory?: number };
-if (Capacitor.getPlatform() !== 'ios' && ((nav.hardwareConcurrency ?? 8) <= 4 || (nav.deviceMemory ?? 8) <= 4)) {
+if ((nav.hardwareConcurrency ?? 8) <= 4 || (nav.deviceMemory ?? 8) <= 4) {
   document.documentElement.classList.add('lite');
 }
 

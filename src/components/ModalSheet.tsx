@@ -1,19 +1,8 @@
 import { motion } from 'framer-motion';
 import type { ReactNode } from 'react';
 
-/**
- * `size="half"` sheets float inset from the screen edges on iPhone (Liquid Glass
- * guidance); `size="full"` sheets reach the edges and stay opaque.
- */
-export function ModalSheet({
-  onClose,
-  children,
-  size = 'half',
-}: {
-  onClose: () => void;
-  children: ReactNode;
-  size?: 'half' | 'full';
-}) {
+/** White bottom sheet over a dimmed backdrop. Wrap in <AnimatePresence>. */
+export function ModalSheet({ onClose, children }: { onClose: () => void; children: ReactNode }) {
   return (
     <>
       <motion.div
@@ -25,7 +14,7 @@ export function ModalSheet({
         transition={{ duration: 0.25 }}
       />
       <motion.div
-        className={`modal-sheet white-sheet ${size}`}
+        className="modal-sheet white-sheet"
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}

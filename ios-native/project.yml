@@ -1,0 +1,69 @@
+# Native SwiftUI iPhone app (real Liquid Glass). Generated into an Xcode
+# project on the cloud Mac with XcodeGen: `xcodegen generate` in this folder.
+name: Masarifi
+options:
+  bundleIdPrefix: com.masarifi
+  deploymentTarget:
+    iOS: "18.0"
+  developmentLanguage: ar
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "2.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGNING_ALLOWED: "NO"
+    CODE_SIGNING_REQUIRED: "NO"
+targets:
+  Masarifi:
+    type: application
+    platform: iOS
+    sources:
+      - path: Masarifi
+    settings:
+      base:
+        # same ID as the earlier build, so it installs over it and keeps the data
+        PRODUCT_BUNDLE_IDENTIFIER: com.masarifi.app
+        PRODUCT_NAME: Masarifi
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    info:
+      path: Masarifi/Info.plist
+      properties:
+        CFBundleDisplayName: مصاريفي
+        CFBundleDevelopmentRegion: ar
+        CFBundleLocalizations: [ar, en]
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+          UIImageName: LaunchLogo
+          UIImageRespectsSafeAreaInsets: true
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        NSMicrophoneUsageDescription: مصاريفي يستخدم المايك لتسجيل مصاريفك بصوتك. My Expenses uses the microphone so you can add expenses by voice.
+        NSSpeechRecognitionUsageDescription: مصاريفي يحوّل كلامك لنص ليفهم المبلغ وعلى شو صرفته. My Expenses turns your speech into text to read the amount and what it was for.
+  MasarifiTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: MasarifiTests
+    dependencies:
+      - target: Masarifi
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.masarifi.app.tests
+        GENERATE_INFOPLIST_FILE: "YES"
+schemes:
+  Masarifi:
+    build:
+      targets:
+        Masarifi: all
+        MasarifiTests: [test]
+    test:
+      targets:
+        - MasarifiTests

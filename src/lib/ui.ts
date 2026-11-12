@@ -27,9 +27,6 @@ interface UiState {
   sheet: Sheet;
   view: { year: number; month: number };
   toast: Toast | null;
-  /** iPhone (iOS 26+): the native Liquid Glass tab bar is showing */
-  nativeTabBar: boolean;
-  setNativeTabBar: (on: boolean) => void;
   setTab: (t: Tab) => void;
   openSheet: (s: Sheet) => void;
   closeSheet: () => void;
@@ -47,8 +44,6 @@ export const useUi = create<UiState>()((set, get) => ({
   sheet: null,
   view: { year: now.getFullYear(), month: now.getMonth() },
   toast: null,
-  nativeTabBar: false,
-  setNativeTabBar: (nativeTabBar) => set({ nativeTabBar }),
   setTab: (tab) => {
     const cur = get().tab;
     if (cur === tab) return;

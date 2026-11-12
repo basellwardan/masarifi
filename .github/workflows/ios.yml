@@ -1,4 +1,5 @@
-# Builds an unsigned masarifi.ipa on a free GitHub macOS machine.
+# Builds the native SwiftUI iPhone app (ios-native/) into an unsigned
+# masarifi.ipa on a free GitHub macOS machine, after running its tests.
 # Install it on an iPhone with Sideloadly (it signs the app with your Apple ID).
 # Run it from the Actions tab ("Run workflow") or by pushing to main.
 name: iOS IPA
@@ -11,12 +12,14 @@ on:
 jobs:
   ipa:
     runs-on: macos-15
-    timeout-minutes: 40
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: ios-native
     steps:
       - uses: actions/checkout@v4
 
-      # Liquid Glass needs the iOS 26 SDK (Xcode 26): the native glass tab bar
-      # and the system's share sheet, alerts and keyboard all depend on it.
+      # Liquid Glass needs the iOS 26 SDK (Xcode 26)
       - name: Use Xcode 26
         run: |
           XC=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -1)
@@ -26,39 +29,46 @@ jobs:
           sudo xcode-select -s "$XC/Contents/Developer"
           xcodebuild -version
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
 
-      - name: Install
-        run: npm ci --no-audit --no-fund
-
-      - name: Build the web app
-        run: npm run build
-
-      - name: Sync into the iOS project (runs pod install)
-        run: npx cap sync ios
+      - name: Test (voice parser + money formatting)
+        run: |
+          SIM=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)['devices']
+          ios = sorted([k for k in d if 'iOS' in k], key=lambda k: [int(x) for x in k.split('iOS-')[-1].split('-')])
+          for k in reversed(ios):
+              for dev in d[k]:
+                  if dev['name'].startswith('iPhone'):
+                      print(dev['udid']); sys.exit()
+          ")
+          echo "Simulator: $SIM"
+          xcodebuild test -project Masarifi.xcodeproj -scheme Masarifi \
+            -destination "id=$SIM" -quiet \
+            CODE_SIGNING_ALLOWED=NO
 
       - name: Archive (unsigned)
         run: |
           xcodebuild \
-            -workspace ios/App/App.xcworkspace \
-            -scheme App \
+            -project Masarifi.xcodeproj \
+            -scheme Masarifi \
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
-            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -archivePath "$RUNNER_TEMP/Masarifi.xcarchive" \
             archive \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            | xcpretty || exit ${PIPESTATUS[0]}
+            -quiet
 
       - name: Package masarifi.ipa
         run: |
           mkdir -p "$RUNNER_TEMP/ipa/Payload"
-          cp -R "$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app" "$RUNNER_TEMP/ipa/Payload/"
+          cp -R "$RUNNER_TEMP/Masarifi.xcarchive/Products/Applications/Masarifi.app" "$RUNNER_TEMP/ipa/Payload/"
           cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/masarifi.ipa" Payload
           ls -la "$GITHUB_WORKSPACE/masarifi.ipa"
 

@@ -10,12 +10,6 @@ const config: CapacitorConfig = {
     // reaches the top edge, like the reference screens).
     adjustMarginsForEdgeToEdge: 'disable',
   },
-  ios: {
-    // the page itself never scrolls/bounces; lists scroll inside the app
-    scrollEnabled: false,
-    contentInset: 'never',
-    backgroundColor: '#071A4A',
-  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 0,

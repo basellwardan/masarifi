@@ -31,3 +31,10 @@ Icons and splash images come from the logo. Run `node tools/android-res.mjs` aga
 - `src/components/` holds Money (muted decimals), TabBar (glass bar with a sliding black pill), AddSheet (keypad and mic), the modal sheets and the Logo.
 - `src/lib/` holds currency, i18n, store (zustand persisted to Capacitor Preferences), voiceParser, speech, share and categories.
 - `src/styles/tokens.css` holds the colours, glass and radii taken from the reference screens.
+
+## iPhone (native SwiftUI, Liquid Glass)
+The iPhone app is a separate native SwiftUI app in `ios-native/`, so it can use Apple's real Liquid Glass: the system `TabView` (glass tab bar that minimizes on scroll, plus a quick-add bottom accessory), `glassEffect` / `GlassEffectContainer` for the glass chips, buttons and statistics bubbles, `.buttonStyle(.glass)`, and system sheets. On iOS 18–25 the same views fall back to Apple's frosted materials.
+- Same features and wording as the Android app. `ios-native/Masarifi/Model/VoiceParser.swift` is a port of `src/lib/voiceParser.ts`, so keep the two in step. `MasarifiTests` repeats the TypeScript parser cases.
+- On first launch it imports what the earlier web-based iPhone build saved (`CapacitorStorage.masarifi-v1`).
+- There's no Mac here. GitHub Actions (`.github/workflows/ios.yml`) generates the Xcode project with XcodeGen (`ios-native/project.yml`), runs the tests on a simulator with Xcode 26 and uploads an unsigned `masarifi.ipa`. Install it with Sideloadly.
+- To regenerate the icon and launch assets: `node tools/native-ios-assets.mjs`.

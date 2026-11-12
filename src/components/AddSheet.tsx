@@ -122,7 +122,7 @@ export function AddSheet({ type: initialType, editId, prefill }: Props) {
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'del'];
 
   return (
-    <ModalSheet onClose={close} size="full">
+    <ModalSheet onClose={close}>
       <div className="segmented">
         {(['expense', 'income'] as TxType[]).map((k) => (
           <button key={k} className={type === k ? 'on' : ''} onClick={() => switchType(k)}>
