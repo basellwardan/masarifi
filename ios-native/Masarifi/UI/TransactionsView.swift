@@ -61,6 +61,7 @@ struct TransactionsView: View {
             .listStyle(.insetGrouped)
             .animation(.snappy, value: filter)
             .navigationTitle(t.transactions)
+            .toolbarTitleDisplayMode(.inlineLarge)
             .safeAreaBar(edge: .top) {
                 Picker("", selection: $filter) {
                     Text(t.all).tag(Filter.all)

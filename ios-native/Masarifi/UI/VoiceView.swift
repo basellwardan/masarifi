@@ -78,6 +78,7 @@ struct VoiceSheet: View {
                 }
             }
         }
+        .tint(.white)
         .presentationDetents([.large])
         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: amount != nil)
         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: listening)
@@ -148,6 +149,7 @@ struct VoiceSheet: View {
                     Text(t.confirm).frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.glassProminent)
+                .tint(Palette.teal)
             }
             .font(.headline)
             .controlSize(.large)

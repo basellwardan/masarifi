@@ -58,11 +58,12 @@ struct WelcomeView: View {
                     HStack(spacing: 12) {
                         if step > 0 {
                             Button { go(step - 1) } label: {
-                                Image(systemName: lang == .ar ? "chevron.right" : "chevron.left")
+                                Image(systemName: "chevron.backward")
                                     .font(.headline)
                                     .frame(width: 30)
                             }
                             .buttonStyle(.glass)
+                            .foregroundStyle(.white)
                             .glassEffectID("back", in: glass)
                             .accessibilityLabel(t.back)
                         }
@@ -72,6 +73,7 @@ struct WelcomeView: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.glassProminent)
+                        .tint(Palette.teal)
                         .glassEffectID("next", in: glass)
                     }
                     .controlSize(.extraLarge)
@@ -84,6 +86,7 @@ struct WelcomeView: View {
                     Button(lang == .ar ? "English" : "العربية") {
                         withAnimation(.snappy) { store.settings.lang = lang == .ar ? .en : .ar }
                     }
+                    .tint(.white)
                 }
             }
             .toolbarColorScheme(.dark, for: .navigationBar)
@@ -103,8 +106,8 @@ struct WelcomeView: View {
     private func features(_ t: Strings) -> some View {
         VStack(alignment: .leading, spacing: 26) {
             feature("waveform", Palette.teal, t.feat1, t.feat1Sub)
-            feature("banknote.fill", .green, t.feat2, t.feat2Sub)
-            feature("lock.iphone", .orange, t.feat3, t.feat3Sub)
+            feature("dollarsign.circle.fill", .green, t.feat2, t.feat2Sub)
+            feature("lock.shield.fill", .orange, t.feat3, t.feat3Sub)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

@@ -75,6 +75,7 @@ struct HomeView: View {
                 .padding(.top, 4)
             GlassChip {
                 Image(systemName: pct >= 0 ? "chart.line.uptrend.xyaxis" : "chart.line.downtrend.xyaxis")
+                    .environment(\.layoutDirection, .leftToRight)
                 Text(String(format: "%.2f%%", abs(pct)))
                     .monospacedDigit()
                     .environment(\.layoutDirection, .leftToRight)

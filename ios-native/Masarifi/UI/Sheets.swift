@@ -82,6 +82,7 @@ struct AddSheet: View {
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
+            .frame(maxHeight: .infinity, alignment: .top)
             .navigationTitle(existing == nil ? (type == .expense ? t.withdraw : t.deposit) : t.edit)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -265,12 +266,12 @@ struct MonthSheet: View {
                     Button(role: .cancel) { dismiss() } label: { Image(systemName: "xmark") }
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button { year -= 1 } label: { Image(systemName: lang == .ar ? "chevron.right" : "chevron.left") }
+                    Button { year -= 1 } label: { Image(systemName: "chevron.backward") }
                     Text(verbatim: String(year))
                         .font(.headline.monospacedDigit())
                         .contentTransition(.numericText(value: Double(year)))
                         .animation(.snappy, value: year)
-                    Button { year += 1 } label: { Image(systemName: lang == .ar ? "chevron.left" : "chevron.right") }
+                    Button { year += 1 } label: { Image(systemName: "chevron.forward") }
                         .disabled(year >= MonthKey.current.year)
                 }
             }
